@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: lesson-designer-web
+    name: simple-score-web
     runtime: docker
     plan: starter
     healthCheckPath: /api/health
@@ -14,6 +14,6 @@ services:
       - key: LESSON_DESIGNER_DATA_DIR
         value: /app/data
     disk:
-      name: lesson-designer-data
+      name: simple-score-data
       mountPath: /app/data
       sizeGB: 1
