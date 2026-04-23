@@ -1,0 +1,17 @@
+services:
+  lesson-designer-web:
+    build: .
+    container_name: lesson-designer-web
+    restart: unless-stopped
+    ports:
+      - "3017:3017"
+    volumes:
+      - lesson_designer_data:/app/data
+    environment:
+      NODE_ENV: production
+      PORT: 3017
+      HOSTNAME: 0.0.0.0
+      LESSON_DESIGNER_DATA_DIR: /app/data
+
+volumes:
+  lesson_designer_data:

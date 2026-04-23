@@ -1,0 +1,14 @@
+.next
+node_modules
+npm-debug.log
+next-dev.log
+next-dev.err.log
+next-dev-3017.log
+next-dev-3017.err.log
+qa-start.log
+qa-start.err.log
+qa-start-3022.log
+qa-start-3022.err.log
+data/.qa
+data/app-db.json
+data/.session-secret

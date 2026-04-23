@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: lesson-designer-web
+    runtime: docker
+    plan: starter
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "10000"
+      - key: HOSTNAME
+        value: 0.0.0.0
+      - key: LESSON_DESIGNER_DATA_DIR
+        value: /app/data
+    disk:
+      name: lesson-designer-data
+      mountPath: /app/data
+      sizeGB: 1

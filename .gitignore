@@ -1,0 +1,11 @@
+node_modules
+.next
+out
+*.log
+data/app-db.json
+data/.session-secret
+data/.qa/
+data/.prodtest/
+awesome-design-md-main/
+list.txt
+tmp.txt

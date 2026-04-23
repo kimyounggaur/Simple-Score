@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson Designer — Music Score Editor</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+  <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vexflow@4.2.2/build/cjs/vexflow.js"></script>
+  <script src="https://cdn.rawgit.com/danigb/soundfont-player/master/dist/soundfont-player.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+<body>
+
+  <!-- Loading Overlay -->
+  <div id="loading-overlay">
+    <div class="loading-content">
+      <lottie-player
+        src="https://lottie.host/78c0b534-7aeb-4cd6-9b87-190f77ea6d14/5Y3t01tW73.json"
+        background="transparent" speed="1"
+        style="width: 180px; height: 180px;" loop autoplay
+      ></lottie-player>
+      <p class="loading-text">Loading instrument…</p>
+    </div>
+  </div>
+
+  <!-- Menu Bar -->
+  <nav id="menu-bar">
+
+    <!-- 파일 -->
+    <div class="mb-item" id="mbi-file">
+      <span>파일</span>
+      <ul class="mb-dropdown">
+        <li><button class="mb-action" data-action="new-score">새 악보<kbd>Ctrl+N</kbd></button></li>
+        <li class="mb-sep"></li>
+        <li><button class="mb-action" data-action="export-png">PNG로 내보내기</button></li>
+        <li><button class="mb-action" data-action="export-pdf">PDF로 내보내기</button></li>
+      </ul>
+    </div>
+
+    <!-- 편집 -->
+    <div class="mb-item" id="mbi-edit">
+      <span>편집</span>
+      <ul class="mb-dropdown">
+        <li><button class="mb-action" data-action="undo">실행취소<kbd>Ctrl+Z</kbd></button></li>
+        <li class="mb-sep"></li>
+        <li><button class="mb-action" data-action="clear">전체 지우기</button></li>
+      </ul>
+    </div>
+
+    <!-- 입력 (Duration + Modify + Verse + Voice) -->
+    <div class="mb-item" id="mbi-input">
+      <span>입력</span>
+      <ul class="mb-dropdown">
+        <li class="mb-section-label">음표 길이</li>
+        <li><button class="mb-action mb-radio" data-action="set-duration" data-value="w">𝅝 온음표<kbd>7</kbd></button></li>
+        <li><button class="mb-action mb-radio" data-action="set-duration" data-value="h">𝅗𝅥 2분음표<kbd>6</kbd></button></li>
+        <li><button class="mb-action mb-radio" data-action="set-duration" data-value="q">♩ 4분음표<kbd>5</kbd></button></li>
+        <li><button class="mb-action mb-radio" data-action="set-duration" data-value="8">♪ 8분음표<kbd>4</kbd></button></li>
+        <li><button class="mb-action mb-radio" data-action="set-duration" data-value="16">𝅘𝅥𝅯 16분음표<kbd>3</kbd></button></li>
+        <li class="mb-sep"></li>
+        <li><button class="mb-action mb-check" id="mb-check-rest"  data-action="toggle-rest">𝄾 쉼표<kbd>R</kbd></button></li>
+        <li><button class="mb-action mb-check" id="mb-check-dot"   data-action="toggle-dot">♩. 점음표<kbd>.</kbd></button></li>
+        <li class="mb-sep"></li>
+        <li><button class="mb-action mb-check" id="mb-check-chord" data-action="toggle-chord">C⁷ 코드 입력<kbd>L</kbd></button></li>
+        <li><button class="mb-action mb-check" id="mb-check-lyric" data-action="toggle-lyric">A 가사 입력<kbd>T</kbd></button></li>
+        <li class="mb-sep"></li>
+        <li class="mb-has-sub">
+          <button class="mb-sub-trigger">가사 성부<span class="mb-arrow">›</span></button>
+          <ul class="mb-submenu">
+            <li><button class="mb-action mb-radio" data-action="set-verse" data-value="0">1st</button></li>
+            <li><button class="mb-action mb-radio" data-action="set-verse" data-value="1">2nd</button></li>
+            <li><button class="mb-action mb-radio" data-action="set-verse" data-value="2">3rd</button></li>
+            <li><button class="mb-action mb-radio" data-action="set-verse" data-value="3">4th</button></li>
+            <li><button class="mb-action mb-radio" data-action="set-verse" data-value="4">5th</button></li>
+          </ul>
+        </li>
+        <li class="mb-has-sub">
+          <button class="mb-sub-trigger">성부 (Voice)<span class="mb-arrow">›</span></button>
+          <ul class="mb-submenu">
+            <li><button class="mb-action mb-radio" data-action="set-voice" data-value="0">1성부 (V1)</button></li>
+            <li><button class="mb-action mb-radio" data-action="set-voice" data-value="1">2성부 (V2)</button></li>
+          </ul>
+        </li>
+      </ul>
+    </div>
+
+    <!-- 폼 (Song Form) -->
+    <div class="mb-item" id="mbi-form">
+      <span>폼</span>
+      <ul class="mb-dropdown">
+        <li class="mb-section-label">곡 형식 레이블</li>
+        <li><button class="mb-action mb-check" data-action="set-form" data-value="intro">Intro</button></li>
+        <li><button class="mb-action mb-check" data-action="set-form" data-value="verse">Verse</button></li>
+        <li><button class="mb-action mb-check" data-action="set-form" data-value="pre-chorus">Pre-Chorus</button></li>
+        <li><button class="mb-action mb-check" data-action="set-form" data-value="chorus">Chorus</button></li>
+        <li><button class="mb-action mb-check" data-action="set-form" data-value="interlude">Interlude</button></li>
+        <li><button class="mb-action mb-check" data-action="set-form" data-value="bridge">Bridge</button></li>
+        <li><button class="mb-action mb-check" data-action="set-form" data-value="climax">Climax</button></li>
+        <li><button class="mb-action mb-check" data-action="set-form" data-value="outro">Outro</button></li>
+        <li><button class="mb-action mb-check" data-action="set-form" data-value="fade-in">Fade In</button></li>
+        <li><button class="mb-action mb-check" data-action="set-form" data-value="fade-out">Fade Out</button></li>
+      </ul>
+    </div>
+
+    <!-- 반복 (Repeat Notation) -->
+    <div class="mb-item" id="mbi-repeat">
+      <span>반복</span>
+      <ul class="mb-dropdown">
+        <li class="mb-section-label">반복 기호</li>
+        <li><button class="mb-action mb-check" data-action="set-repeat" data-value="repeat-start">|: 시작 반복</button></li>
+        <li><button class="mb-action mb-check" data-action="set-repeat" data-value="repeat-end">끝 반복 :|</button></li>
+        <li><button class="mb-action mb-check" data-action="set-repeat" data-value="volta-1">1st Ending [ ]</button></li>
+        <li><button class="mb-action mb-check" data-action="set-repeat" data-value="volta-2">2nd Ending [ ]</button></li>
+        <li class="mb-sep"></li>
+        <li><button class="mb-action mb-check" data-action="set-repeat" data-value="segno">𝄋 Segno</button></li>
+        <li><button class="mb-action mb-check" data-action="set-repeat" data-value="coda">𝄌 Coda</button></li>
+        <li><button class="mb-action mb-check" data-action="set-repeat" data-value="da-capo">D.C.</button></li>
+        <li><button class="mb-action mb-check" data-action="set-repeat" data-value="dal-segno">D.S.</button></li>
+        <li><button class="mb-action mb-check" data-action="set-repeat" data-value="ds-al-coda">D.S. al Coda</button></li>
+        <li><button class="mb-action mb-check" data-action="set-repeat" data-value="fine">Fine</button></li>
+        <li class="mb-sep"></li>
+        <li><button class="mb-action mb-check" data-action="set-repeat" data-value="fermata">𝄐 Fermata</button></li>
+      </ul>
+    </div>
+
+    <!-- 표현 (Articulation + Dynamics) -->
+    <div class="mb-item" id="mbi-expr">
+      <span>표현</span>
+      <ul class="mb-dropdown" style="min-width:170px">
+        <li class="mb-section-label">아티큘레이션</li>
+        <li><button class="mb-action mb-check" data-action="set-artic" data-value="staccato">· Staccato</button></li>
+        <li><button class="mb-action mb-check" data-action="set-artic" data-value="accent">&gt; Accent</button></li>
+        <li><button class="mb-action mb-check" data-action="set-artic" data-value="tenuto">— Tenuto</button></li>
+        <li><button class="mb-action mb-check" data-action="set-artic" data-value="marcato">^ Marcato</button></li>
+        <li><button class="mb-action mb-check" data-action="set-artic" data-value="staccatissimo">▾ Staccatissimo</button></li>
+        <li class="mb-sep"></li>
+        <li class="mb-section-label">다이나믹</li>
+        <li><button class="mb-action mb-check" data-action="set-dynamic" data-value="pp"><i>pp</i></button></li>
+        <li><button class="mb-action mb-check" data-action="set-dynamic" data-value="p"><i>p</i></button></li>
+        <li><button class="mb-action mb-check" data-action="set-dynamic" data-value="mp"><i>mp</i></button></li>
+        <li><button class="mb-action mb-check" data-action="set-dynamic" data-value="mf"><i>mf</i></button></li>
+        <li><button class="mb-action mb-check" data-action="set-dynamic" data-value="f"><i>f</i></button></li>
+        <li><button class="mb-action mb-check" data-action="set-dynamic" data-value="ff"><i>ff</i></button></li>
+        <li><button class="mb-action mb-check" data-action="set-dynamic" data-value="sfz"><i>sfz</i></button></li>
+        <li><button class="mb-action mb-check" data-action="set-dynamic" data-value="fp"><i>fp</i></button></li>
+      </ul>
+    </div>
+
+    <!-- 보기 -->
+    <div class="mb-item" id="mbi-view">
+      <span>보기</span>
+      <ul class="mb-dropdown">
+        <li><button class="mb-action mb-check" id="mb-check-mno" data-action="toggle-measure-numbers">마디 번호 표시</button></li>
+        <li class="mb-sep"></li>
+        <li class="mb-has-sub">
+          <button class="mb-sub-trigger">한 줄 마디 수<span class="mb-arrow">›</span></button>
+          <ul class="mb-submenu">
+            <li><button class="mb-action mb-radio" data-action="set-mpl" data-value="1">1 마디</button></li>
+            <li><button class="mb-action mb-radio" data-action="set-mpl" data-value="2">2 마디</button></li>
+            <li><button class="mb-action mb-radio" data-action="set-mpl" data-value="3">3 마디</button></li>
+            <li><button class="mb-action mb-radio" data-action="set-mpl" data-value="4">4 마디</button></li>
+            <li><button class="mb-action mb-radio" data-action="set-mpl" data-value="5">5 마디</button></li>
+            <li><button class="mb-action mb-radio" data-action="set-mpl" data-value="6">6 마디</button></li>
+            <li><button class="mb-action mb-radio" data-action="set-mpl" data-value="7">7 마디</button></li>
+            <li><button class="mb-action mb-radio" data-action="set-mpl" data-value="8">8 마디</button></li>
+          </ul>
+        </li>
+      </ul>
+    </div>
+
+    <!-- 악보 -->
+    <div class="mb-item" id="mbi-score">
+      <span>악보</span>
+      <ul class="mb-dropdown">
+        <li class="mb-has-sub">
+          <button class="mb-sub-trigger">조성<span class="mb-arrow">›</span></button>
+          <ul class="mb-submenu">
+            <li><button class="mb-action mb-radio" data-action="set-key" data-value="C">C Major</button></li>
+            <li><button class="mb-action mb-radio" data-action="set-key" data-value="G">G Major</button></li>
+            <li><button class="mb-action mb-radio" data-action="set-key" data-value="D">D Major</button></li>
+            <li><button class="mb-action mb-radio" data-action="set-key" data-value="A">A Major</button></li>
+            <li><button class="mb-action mb-radio" data-action="set-key" data-value="E">E Major</button></li>
+            <li><button class="mb-action mb-radio" data-action="set-key" data-value="F">F Major</button></li>
+            <li><button class="mb-action mb-radio" data-action="set-key" data-value="Bb">Bb Major</button></li>
+            <li><button class="mb-action mb-radio" data-action="set-key" data-value="Eb">Eb Major</button></li>
+          </ul>
+        </li>
+        <li class="mb-has-sub">
+          <button class="mb-sub-trigger">박자<span class="mb-arrow">›</span></button>
+          <ul class="mb-submenu">
+            <li><button class="mb-action mb-radio" data-action="set-time" data-value="4/4">4/4</button></li>
+            <li><button class="mb-action mb-radio" data-action="set-time" data-value="3/4">3/4</button></li>
+            <li><button class="mb-action mb-radio" data-action="set-time" data-value="2/4">2/4</button></li>
+            <li><button class="mb-action mb-radio" data-action="set-time" data-value="6/8">6/8</button></li>
+            <li><button class="mb-action mb-radio" data-action="set-time" data-value="2/2">2/2</button></li>
+          </ul>
+        </li>
+      </ul>
+    </div>
+
+    <!-- 도움말 -->
+    <div class="mb-item" id="mbi-help">
+      <span>도움말</span>
+      <ul class="mb-dropdown">
+        <li><button class="mb-action" data-action="show-shortcuts">키보드 단축키<kbd>?</kbd></button></li>
+      </ul>
+    </div>
+
+  </nav>
+
+  <!-- Shortcuts Modal -->
+  <div id="shortcuts-modal" class="sc-modal-backdrop">
+    <div class="sc-modal">
+      <div class="sc-modal-header">
+        <span>키보드 단축키</span>
+        <button id="sc-modal-close">×</button>
+      </div>
+      <div class="sc-modal-body">
+        <div class="sc-col">
+          <div class="sc-section-title">음표 입력</div>
+          <div class="sc-row"><kbd>A–G</kbd><span>음 입력</span></div>
+          <div class="sc-row"><kbd>7</kbd><span>온음표</span></div>
+          <div class="sc-row"><kbd>6</kbd><span>2분음표</span></div>
+          <div class="sc-row"><kbd>5</kbd><span>4분음표</span></div>
+          <div class="sc-row"><kbd>4</kbd><span>8분음표</span></div>
+          <div class="sc-row"><kbd>3</kbd><span>16분음표</span></div>
+          <div class="sc-row"><kbd>R</kbd><span>쉼표</span></div>
+          <div class="sc-row"><kbd>.</kbd><span>점음표</span></div>
+          <div class="sc-section-title" style="margin-top:10px">편집</div>
+          <div class="sc-row"><kbd>Ctrl+Z</kbd><span>실행취소</span></div>
+          <div class="sc-row"><kbd>Delete / ←</kbd><span>음표 삭제</span></div>
+          <div class="sc-row"><kbd>↑ / ↓</kbd><span>음높이 조절</span></div>
+          <div class="sc-row"><kbd>Shift+↑↓</kbd><span>옥타브 이동</span></div>
+        </div>
+        <div class="sc-col">
+          <div class="sc-section-title">모드</div>
+          <div class="sc-row"><kbd>L</kbd><span>코드 입력 모드</span></div>
+          <div class="sc-row"><kbd>T</kbd><span>가사 입력 모드</span></div>
+          <div class="sc-row"><kbd>Esc</kbd><span>모드 종료</span></div>
+          <div class="sc-section-title" style="margin-top:10px">이동</div>
+          <div class="sc-row"><kbd>← →</kbd><span>커서 이동</span></div>
+          <div class="sc-row"><kbd>Home / End</kbd><span>처음 / 끝</span></div>
+          <div class="sc-section-title" style="margin-top:10px">재생</div>
+          <div class="sc-row"><kbd>Space</kbd><span>재생 / 정지</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Top Header: 2-row layout -->
+  <header id="top-header">
+
+    <!-- Row 1: Brand | Settings | Note Color | Edit -->
+    <div class="header-row header-row-1">
+
+      <div class="header-brand">
+        <div class="logo">
+          <svg class="logo-icon" viewBox="0 0 28 28" fill="none">
+            <circle cx="14" cy="14" r="13" stroke="currentColor" stroke-width="1.5"/>
+            <ellipse cx="11" cy="17" rx="3.5" ry="2.5" fill="currentColor"/>
+            <line x1="14.5" y1="17" x2="14.5" y2="6" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M14.5 6 C17 5, 20 6.5, 19 9" stroke="currentColor" stroke-width="1.3" fill="none"/>
+          </svg>
+          <span class="logo-text">Lesson Designer</span>
+        </div>
+        <div class="entry-mode-badge">Simple Entry</div>
+      </div>
+
+      <div class="toolbar-sep-v"></div>
+
+      <!-- Settings -->
+      <div class="toolbar-group">
+        <span class="toolbar-group-label">Settings</span>
+        <div class="toolbar-controls-row">
+          <span class="tb-mini-label">Key</span>
+          <select id="key-sig-select" class="tb-select">
+            <option value="C">C Major</option><option value="G">G Major</option>
+            <option value="D">D Major</option><option value="A">A Major</option>
+            <option value="E">E Major</option><option value="F">F Major</option>
+            <option value="Bb">Bb Major</option><option value="Eb">Eb Major</option>
+          </select>
+          <span class="tb-mini-label">Time</span>
+          <select id="time-sig-select" class="tb-select">
+            <option value="4/4">4/4</option><option value="3/4">3/4</option>
+            <option value="2/4">2/4</option><option value="6/8">6/8</option>
+            <option value="2/2">2/2</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="toolbar-sep-v"></div>
+
+      <!-- Note Color -->
+      <div class="toolbar-group">
+        <span class="toolbar-group-label">Note Color</span>
+        <div class="toolbar-controls-row">
+          <span class="tb-mini-label">Head</span>
+          <input type="color" id="note-head-color" value="#000000" class="tb-color" />
+          <span id="note-head-color-hex" class="tb-val">#000000</span>
+          <span class="tb-mini-label">Stem</span>
+          <input type="color" id="note-stem-color" value="#000000" class="tb-color" />
+          <span id="note-stem-color-hex" class="tb-val">#000000</span>
+        </div>
+      </div>
+
+      <div class="toolbar-sep-v"></div>
+
+      <!-- Edit -->
+      <div class="toolbar-group">
+        <span class="toolbar-group-label">Edit</span>
+        <div class="toolbar-controls-row">
+          <button class="tb-btn" id="btn-undo" title="Undo (Ctrl+Z)">↩ Undo</button>
+          <button class="tb-btn" id="btn-clear" title="Clear All">🗑 Clear</button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Row 2: 가사 스타일 | Layout -->
+    <div class="header-row header-row-2">
+
+      <!-- 가사 스타일 -->
+      <div class="toolbar-group" id="lyric-style-section">
+        <span class="toolbar-group-label">가사 스타일</span>
+        <div class="toolbar-controls-row">
+          <select id="lyric-font" class="tb-select">
+            <option value="'DM Sans', sans-serif" selected>DM Sans</option>
+            <option value="'Noto Serif KR', serif">Noto Serif</option>
+            <option value="Georgia, serif">Georgia</option>
+            <option value="Arial, sans-serif">Arial</option>
+            <option value="'Times New Roman', serif">Times NR</option>
+          </select>
+          <span class="tb-mini-label">크기</span>
+          <input type="range" id="lyric-size" min="6" max="36" value="12" class="tb-slider" />
+          <span id="lyric-size-val" class="tb-val">12</span>
+          <span class="tb-mini-label">위치</span>
+          <input type="range" id="lyric-offset" min="4" max="70" value="22" class="tb-slider" />
+          <span id="lyric-offset-val" class="tb-val">22</span>
+          <select id="lyric-weight" class="tb-select tb-select-sm">
+            <option value="300">Light</option>
+            <option value="400">Regular</option>
+            <option value="500" selected>Medium</option>
+            <option value="600">Semi-Bold</option>
+            <option value="700">Bold</option>
+          </select>
+          <button class="tb-toggle active" id="lyric-italic-toggle"><i>I</i></button>
+          <input type="color" id="lyric-color" value="#3a3035" class="tb-color" />
+          <span id="lyric-color-hex" class="tb-val">#3a3035</span>
+        </div>
+      </div>
+
+      <div class="toolbar-sep-v"></div>
+
+      <!-- Layout -->
+      <div class="toolbar-group">
+        <span class="toolbar-group-label">Layout</span>
+        <div class="toolbar-controls-row">
+          <span class="tb-mini-label">M/Line</span>
+          <input type="range" id="sl-measures-per-line" min="1" max="8" value="4" step="1" class="tb-slider" />
+          <span class="tb-val" id="val-measures-per-line">4</span>
+          <span class="tb-mini-label">Staff Size</span>
+          <input type="range" id="sl-staff-scale" min="6" max="20" value="10" step="1" class="tb-slider" />
+          <span class="tb-val" id="val-staff-scale">10</span>
+          <span class="tb-mini-label">Spacing</span>
+          <input type="range" id="sl-staff-spacing" min="80" max="240" value="130" step="5" class="tb-slider" />
+          <span class="tb-val" id="val-staff-spacing">130</span>
+          <span class="tb-mini-label">Width</span>
+          <input type="range" id="sl-measure-width" min="120" max="400" value="200" step="10" class="tb-slider" />
+          <span class="tb-val" id="val-measure-width">200</span>
+          <span class="tb-mini-label">M.No</span>
+          <input type="checkbox" id="toggle-measure-numbers" checked class="tb-check" />
+          <button class="tb-toggle" id="btn-gap-mode" title="마디 사이 간격 조정 (Gap Mode)" style="margin-left:6px">Gap</button>
+        </div>
+      </div>
+
+    </div>
+
+  </header>
+
+  <!-- Main Body -->
+  <div id="app-body">
+    <!-- Left Sidebar: Duration + Modify + Shortcuts -->
+    <aside id="sidebar">
+      <div class="sidebar-section">
+        <h3 class="sidebar-title">Duration</h3>
+        <div class="btn-group note-buttons">
+          <button class="tool-btn" data-duration="w" title="Whole Note (7)">
+            <span class="note-symbol">𝅝</span><span class="note-label">Whole</span><kbd>7</kbd>
+          </button>
+          <button class="tool-btn" data-duration="h" title="Half Note (6)">
+            <span class="note-symbol">𝅗𝅥</span><span class="note-label">Half</span><kbd>6</kbd>
+          </button>
+          <button class="tool-btn active" data-duration="q" title="Quarter Note (5)">
+            <span class="note-symbol">♩</span><span class="note-label">Quarter</span><kbd>5</kbd>
+          </button>
+          <button class="tool-btn" data-duration="8" title="8th Note (4)">
+            <span class="note-symbol">♪</span><span class="note-label">8th</span><kbd>4</kbd>
+          </button>
+          <button class="tool-btn" data-duration="16" title="16th Note (3)">
+            <span class="note-symbol">𝅘𝅥𝅯</span><span class="note-label">16th</span><kbd>3</kbd>
+          </button>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <h3 class="sidebar-title">Modify</h3>
+        <div class="btn-group modify-buttons">
+          <button class="tool-btn" id="btn-rest" title="Rest (R)">
+            <span class="note-symbol">𝄾</span><span class="note-label">Rest</span><kbd>R</kbd>
+          </button>
+          <button class="tool-btn" id="btn-dot" title="Dotted (.)">
+            <span class="note-symbol">♩.</span><span class="note-label">Dot</span><kbd>.</kbd>
+          </button>
+          <button class="tool-btn" id="btn-chord" title="Chord Symbol (L)">
+            <span class="note-symbol chord-sym">C⁷</span><span class="note-label">Chord</span><kbd>L</kbd>
+          </button>
+          <button class="tool-btn" id="btn-lyric" title="Lyrics (T)">
+            <span class="note-symbol lyric-sym">A</span><span class="note-label">Lyrics</span><kbd>T</kbd>
+          </button>
+        </div>
+      </div>
+
+      <!-- Lyric Verse (가사 성부) -->
+      <div class="sidebar-section">
+        <h3 class="sidebar-title">가사 성부 (Lyric Verse)</h3>
+        <div class="btn-group lyric-verse-buttons">
+          <button class="lyric-verse-btn active" data-verse="0">1st</button>
+          <button class="lyric-verse-btn"        data-verse="1">2nd</button>
+          <button class="lyric-verse-btn"        data-verse="2">3rd</button>
+          <button class="lyric-verse-btn"        data-verse="3">4th</button>
+          <button class="lyric-verse-btn"        data-verse="4">5th</button>
+        </div>
+      </div>
+
+      <!-- Song Form -->
+      <div class="sidebar-section">
+        <h3 class="sidebar-title">Song Form</h3>
+        <div class="btn-group form-buttons">
+          <button class="form-btn" data-form="intro">Intro</button>
+          <button class="form-btn" data-form="verse">Verse</button>
+          <button class="form-btn" data-form="pre-chorus">Pre-Ch</button>
+          <button class="form-btn" data-form="chorus">Chorus</button>
+          <button class="form-btn" data-form="interlude">Interlude</button>
+          <button class="form-btn" data-form="bridge">Bridge</button>
+          <button class="form-btn" data-form="climax">Climax</button>
+          <button class="form-btn" data-form="outro">Outro</button>
+          <button class="form-btn" data-form="fade-in">Fade In</button>
+          <button class="form-btn" data-form="fade-out">Fade Out</button>
+        </div>
+      </div>
+
+      <!-- Shortcut reference -->
+      <div class="sidebar-section shortcut-ref">
+        <h3 class="sidebar-title">Shortcuts</h3>
+        <div class="shortcut-list">
+          <div><kbd>A</kbd>–<kbd>G</kbd> Enter pitch</div>
+          <div><kbd>←</kbd><kbd>→</kbd> Navigate</div>
+          <div><kbd>↑</kbd><kbd>↓</kbd> Transpose (step)</div>
+          <div><kbd>+</kbd><kbd>-</kbd> Semitone ±1</div>
+          <div><kbd>L</kbd> Chord symbol</div>
+          <div><kbd>T</kbd> Tie (붙임줄)</div>
+          <div><kbd>S</kbd> Slur (이음줄)</div>
+          <div><kbd>Del</kbd> Delete note</div>
+          <div><kbd>Space</kbd> Play / Stop</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Workspace -->
+    <main id="workspace">
+      <div id="score-canvas">
+        <!-- Floating chord input (hidden by default) -->
+        <input type="text" id="chord-input"
+               placeholder="e.g. Cmaj7"
+               autocomplete="off" spellcheck="false" />
+        <!-- Floating lyric input (hidden by default) -->
+        <input type="text" id="lyric-input"
+               placeholder="syllable"
+               autocomplete="off" spellcheck="false" />
+        <!-- Floating gap panel (hidden by default) -->
+        <div id="gap-panel" class="gap-panel">
+          <span id="gap-panel-label">마디 1 이후 간격</span>
+          <input type="range" id="gap-panel-slider" min="0" max="300" value="0" step="5" />
+          <input type="number" id="gap-panel-number" min="0" max="300" value="0" step="5" class="gap-panel-number" />
+          <span class="gap-panel-unit">px</span>
+          <button id="gap-panel-reset" class="gap-panel-btn">초기화</button>
+          <button id="gap-panel-close" class="gap-panel-close" title="닫기">×</button>
+        </div>
+      </div>
+      <div id="status-bar">
+        <span id="status-duration">♩ Quarter</span>
+        <span class="status-sep">·</span>
+        <span id="status-position">Position: 1</span>
+        <span class="status-sep">·</span>
+        <span id="status-pitch">—</span>
+        <span class="status-sep">·</span>
+        <span id="status-chord"></span>
+        <span id="status-lyric"></span>
+      </div>
+    </main>
+
+    <!-- Right Sidebar: Repeat + Articulation + Dynamics + Voice -->
+    <aside id="sidebar-right">
+      <!-- Repeat Notation -->
+      <div class="sidebar-section">
+        <h3 class="sidebar-title">Repeat</h3>
+        <div class="btn-group repeat-buttons">
+          <button class="repeat-btn" data-repeat="repeat-start">|: Start Repeat</button>
+          <button class="repeat-btn" data-repeat="repeat-end">End Repeat :|</button>
+          <button class="repeat-btn" data-repeat="volta-1">1st Ending [ ]</button>
+          <button class="repeat-btn" data-repeat="volta-2">2nd Ending [ ]</button>
+          <button class="repeat-btn" data-repeat="segno">𝄋 Segno</button>
+          <button class="repeat-btn" data-repeat="coda">𝄌 Coda</button>
+          <button class="repeat-btn" data-repeat="da-capo">D.C.</button>
+          <button class="repeat-btn" data-repeat="dal-segno">D.S.</button>
+          <button class="repeat-btn" data-repeat="ds-al-coda">D.S. al Coda</button>
+          <button class="repeat-btn" data-repeat="fine">Fine</button>
+          <button class="repeat-btn" data-repeat="fermata">𝄐 Fermata</button>
+        </div>
+      </div>
+
+      <!-- Articulation -->
+      <div class="sidebar-section">
+        <h3 class="sidebar-title">Articulation</h3>
+        <div class="btn-group artic-buttons">
+          <button class="artic-btn" data-artic="staccato">· Staccato</button>
+          <button class="artic-btn" data-artic="accent">&gt; Accent</button>
+          <button class="artic-btn" data-artic="tenuto">— Tenuto</button>
+          <button class="artic-btn" data-artic="marcato">^ Marcato</button>
+          <button class="artic-btn" data-artic="staccatissimo">▾ Staccatissimo</button>
+        </div>
+      </div>
+
+      <!-- Dynamics -->
+      <div class="sidebar-section">
+        <h3 class="sidebar-title">Dynamics</h3>
+        <div class="btn-group dynamic-buttons">
+          <button class="dynamic-btn" data-dynamic="pp"><i>pp</i></button>
+          <button class="dynamic-btn" data-dynamic="p"><i>p</i></button>
+          <button class="dynamic-btn" data-dynamic="mp"><i>mp</i></button>
+          <button class="dynamic-btn" data-dynamic="mf"><i>mf</i></button>
+          <button class="dynamic-btn" data-dynamic="f"><i>f</i></button>
+          <button class="dynamic-btn" data-dynamic="ff"><i>ff</i></button>
+          <button class="dynamic-btn" data-dynamic="sfz"><i>sfz</i></button>
+          <button class="dynamic-btn" data-dynamic="fp"><i>fp</i></button>
+        </div>
+      </div>
+
+      <!-- Voice Part (성부) -->
+      <div class="sidebar-section">
+        <h3 class="sidebar-title">성부 (Voice)</h3>
+        <div class="btn-group voice-buttons">
+          <button class="voice-btn active" data-voice="0">1성부 (V1)</button>
+          <button class="voice-btn"        data-voice="1">2성부 (V2)</button>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Bottom Bar: Instrument + Transport + BPM + Export -->
+  <footer id="bottom-bar">
+    <div class="control-group">
+      <label for="instrument-select">Instrument</label>
+      <select id="instrument-select">
+        <option value="acoustic_grand_piano">Acoustic Piano</option>
+        <option value="acoustic_guitar_nylon">Acoustic Guitar (Nylon)</option>
+        <option value="acoustic_guitar_steel">Acoustic Guitar (Steel)</option>
+        <option value="electric_grand_piano">Electric Piano</option>
+        <option value="violin">Violin</option>
+        <option value="flute">Flute</option>
+        <option value="cello">Cello</option>
+        <option value="trumpet">Trumpet</option>
+      </select>
+    </div>
+
+    <div class="transport-controls">
+      <button id="btn-play" class="transport-btn" title="Play (Space)">
+        <svg viewBox="0 0 20 20" fill="currentColor"><polygon points="4,2 18,10 4,18"/></svg>
+        <span>Play</span>
+      </button>
+      <button id="btn-stop" class="transport-btn" title="Stop">
+        <svg viewBox="0 0 20 20" fill="currentColor"><rect x="3" y="3" width="14" height="14" rx="2"/></svg>
+        <span>Stop</span>
+      </button>
+    </div>
+
+    <div class="bpm-control">
+      <label for="bpm-slider">BPM</label>
+      <input type="range" id="bpm-slider" min="60" max="200" value="120" />
+      <span id="bpm-display" class="bpm-value">120</span>
+    </div>
+
+    <div class="export-controls">
+      <button id="btn-export-png" class="export-btn" title="Save as PNG">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 13v3a1 1 0 001 1h12a1 1 0 001-1v-3"/><polyline points="6 9 10 13 14 9"/><line x1="10" y1="13" x2="10" y2="3"/></svg>
+        <span>PNG</span>
+      </button>
+      <button id="btn-export-pdf" class="export-btn" title="Save as PDF">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 13v3a1 1 0 001 1h12a1 1 0 001-1v-3"/><polyline points="6 9 10 13 14 9"/><line x1="10" y1="13" x2="10" y2="3"/></svg>
+        <span>PDF</span>
+      </button>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
