@@ -116,7 +116,7 @@ export default function AuthConsole({
     <main className={styles.page}>
       <div className={styles.shell}>
         <section className={styles.hero}>
-          <div className={styles.eyebrow}>Lesson Designer Access</div>
+          <div className={styles.eyebrow}>Simple Score Access</div>
           <h1 className={styles.heroTitle}>
             회원 로그인, 관리자 로그인, 가입자 관리까지 한 흐름으로 묶었습니다.
           </h1>

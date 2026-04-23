@@ -1,7 +1,7 @@
 import "../style.css";
 
 export const metadata = {
-  title: "Lesson Designer Music Score Editor",
+  title: "Simple Score Music Score Editor",
   description: "Educational music score editor",
 };
 
