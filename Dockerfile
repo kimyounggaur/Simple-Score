@@ -16,7 +16,7 @@ FROM node:22-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
-ENV PORT=3017
+ENV PORT=10000
 ENV HOSTNAME=0.0.0.0
 ENV LESSON_DESIGNER_DATA_DIR=/app/data
 
@@ -27,8 +27,8 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
-USER nextjs
-
-EXPOSE 3017
+# Render mounted disks are attached at runtime, so keeping the runner as root
+# avoids write-permission failures when the app initializes db/secret files.
+EXPOSE 10000
 
 CMD ["node", "server.js"]
