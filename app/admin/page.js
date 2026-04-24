@@ -56,9 +56,9 @@ export default async function AdminPage() {
             <Link className={styles.secondary} href="/admin/design">
               랜딩 디자인
             </Link>
-            <Link className={styles.primary} href="/">
+            <a className={styles.primary} href="/">
               편집기로 이동
-            </Link>
+            </a>
             <LogoutButton className={styles.logout} returnTo="/auth?mode=admin" />
           </div>
         </section>
