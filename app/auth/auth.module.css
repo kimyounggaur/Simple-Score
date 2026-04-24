@@ -1,7 +1,30 @@
 .page {
+  --landing-page-bg: #05070b;
+  --landing-accent: #93c5fd;
+  --landing-text-primary: #f8fafc;
+  --landing-text-secondary: rgba(226, 232, 240, 0.86);
+  --landing-text-muted: rgba(226, 232, 240, 0.68);
+  --landing-top-button-bg: rgba(255, 255, 255, 0.04);
+  --landing-top-button-border: rgba(255, 255, 255, 0.16);
+  --landing-panel-bg: rgba(9, 13, 20, 0.78);
+  --landing-panel-border: rgba(255, 255, 255, 0.12);
+  --landing-panel-text: #f8fafc;
+  --landing-input-bg: rgba(255, 255, 255, 0.08);
+  --landing-input-text: #ffffff;
+  --landing-primary-button-bg: #ffffff;
+  --landing-primary-button-text: #020617;
+  --landing-secondary-button-bg: rgba(255, 255, 255, 0.08);
+  --landing-secondary-button-text: #f8fafc;
+  --landing-signal-bg: rgba(8, 12, 18, 0.4);
+  --landing-signal-border: rgba(255, 255, 255, 0.14);
+  --landing-content-max-width: 1360px;
+  --landing-content-gap: 36px;
+  --landing-hero-title-max-width: 760px;
+  --landing-hero-text-max-width: 580px;
+  --landing-panel-width: 460px;
   min-height: 100vh;
   min-height: 100svh;
-  background: #05070b;
+  background: var(--landing-page-bg);
 }
 
 .stage {
@@ -28,7 +51,7 @@
 .content {
   position: relative;
   z-index: 1;
-  width: min(1360px, calc(100% - 40px));
+  width: min(var(--landing-content-max-width), calc(100% - 40px));
   margin: 0 auto;
 }
 
@@ -75,13 +98,13 @@
   margin: 0;
   font-size: 18px;
   font-weight: 700;
-  color: #f8fafc;
+  color: var(--landing-text-primary);
 }
 
 .brandMeta {
   margin: 3px 0 0;
   font-size: 12px;
-  color: rgba(226, 232, 240, 0.72);
+  color: var(--landing-text-secondary);
 }
 
 .topActions {
@@ -98,19 +121,19 @@
   justify-content: center;
   min-height: 38px;
   padding: 0 14px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  border: 1px solid var(--landing-top-button-border);
   border-radius: 8px;
-  color: #f8fafc;
+  color: var(--landing-text-primary);
   text-decoration: none;
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--landing-top-button-bg);
   backdrop-filter: blur(10px);
 }
 
 .content {
   display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(360px, 460px);
+  grid-template-columns: minmax(0, 1.25fr) minmax(360px, var(--landing-panel-width));
   align-items: end;
-  gap: 36px;
+  gap: var(--landing-content-gap);
   padding: 72px 0 34px;
 }
 
@@ -132,32 +155,34 @@
   text-transform: uppercase;
 }
 
-.eyebrow {
-  color: #93c5fd;
+.eyebrow,
+.panelEyebrow,
+.signalLabel {
+  color: var(--landing-accent);
 }
 
 .heroTitle {
-  width: min(760px, 100%);
+  width: min(var(--landing-hero-title-max-width), 100%);
   margin: 0;
   font-size: clamp(42px, 6vw, 86px);
   line-height: 1.02;
   text-wrap: balance;
-  color: #f8fafc;
+  color: var(--landing-text-primary);
 }
 
 .heroText {
-  width: min(580px, 100%);
+  width: min(var(--landing-hero-text-max-width), 100%);
   margin: 22px 0 0;
   font-size: 18px;
   line-height: 1.7;
-  color: rgba(226, 232, 240, 0.86);
+  color: var(--landing-text-secondary);
 }
 
 .signalRow {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
-  width: min(760px, 100%);
+  width: min(var(--landing-hero-title-max-width), 100%);
   margin-top: 30px;
 }
 
@@ -166,9 +191,9 @@
   align-content: space-between;
   min-height: 110px;
   padding: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid var(--landing-signal-border);
   border-radius: 8px;
-  background: rgba(8, 12, 18, 0.4);
+  background: var(--landing-signal-bg);
   backdrop-filter: blur(10px);
 }
 
@@ -176,7 +201,6 @@
   display: block;
   margin-bottom: 20px;
   font-size: 12px;
-  color: rgba(191, 219, 254, 0.84);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -185,7 +209,7 @@
   display: block;
   font-size: 24px;
   line-height: 1.2;
-  color: #f8fafc;
+  color: var(--landing-text-primary);
 }
 
 .heroFooter {
@@ -198,15 +222,15 @@
 .heroHint {
   margin: 0;
   font-size: 14px;
-  color: rgba(226, 232, 240, 0.68);
+  color: var(--landing-text-muted);
 }
 
 .panel {
   align-self: center;
-  width: min(100%, 460px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  width: min(100%, var(--landing-panel-width));
+  border: 1px solid var(--landing-panel-border);
   border-radius: 8px;
-  background: rgba(9, 13, 20, 0.78);
+  background: var(--landing-panel-bg);
   box-shadow: 0 28px 70px rgba(0, 0, 0, 0.34);
   backdrop-filter: blur(18px);
 }
@@ -222,14 +246,10 @@
   gap: 16px;
 }
 
-.panelEyebrow {
-  color: #93c5fd;
-}
-
 .panelTitle {
   margin: 0;
   font-size: 30px;
-  color: #f8fafc;
+  color: var(--landing-panel-text);
 }
 
 .statusPill {
@@ -286,7 +306,7 @@
 .label {
   font-size: 13px;
   font-weight: 600;
-  color: rgba(226, 232, 240, 0.88);
+  color: var(--landing-text-secondary);
 }
 
 .input {
@@ -294,8 +314,8 @@
   padding: 0 15px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.08);
-  color: #ffffff;
+  background: var(--landing-input-bg);
+  color: var(--landing-input-text);
   font-size: 15px;
 }
 
@@ -352,13 +372,13 @@
 }
 
 .primaryAction {
-  background: #ffffff;
-  color: #020617;
+  background: var(--landing-primary-button-bg);
+  color: var(--landing-primary-button-text);
 }
 
 .secondaryAction {
-  background: rgba(255, 255, 255, 0.08);
-  color: #f8fafc;
+  background: var(--landing-secondary-button-bg);
+  color: var(--landing-secondary-button-text);
   border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
@@ -378,11 +398,11 @@
   margin: 0;
   font-size: 13px;
   line-height: 1.7;
-  color: rgba(226, 232, 240, 0.72);
+  color: var(--landing-text-muted);
 }
 
 .inlineLink {
-  color: #bfdbfe;
+  color: var(--landing-accent);
   text-decoration: none;
 }
 
@@ -396,7 +416,7 @@
   margin: 0;
   font-size: 22px;
   line-height: 1.3;
-  color: #f8fafc;
+  color: var(--landing-text-primary);
 }
 
 @media (max-width: 1280px) {
@@ -433,13 +453,6 @@
 }
 
 @media (max-width: 760px) {
-  .stage {
-    background:
-      linear-gradient(180deg, rgba(5, 7, 11, 0.68) 0%, rgba(5, 7, 11, 0.9) 100%),
-      url("https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1400&q=80")
-        center center / cover no-repeat;
-  }
-
   .topbar,
   .content {
     width: min(100%, calc(100% - 28px));
@@ -523,10 +536,6 @@
     gap: 20px;
   }
 
-  .hero {
-    gap: 0;
-  }
-
   .eyebrow,
   .panelEyebrow {
     margin-bottom: 10px;
@@ -599,11 +608,6 @@
 }
 
 @media (max-width: 420px) {
-  .signalRow,
-  .tabs {
-    grid-template-columns: 1fr;
-  }
-
   .heroTitle {
     font-size: 32px;
   }

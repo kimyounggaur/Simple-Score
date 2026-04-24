@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { normalizeLandingPageDesign } from "../../lib/design-config";
 import LogoutButton from "../components/LogoutButton";
 import styles from "./auth.module.css";
 
 const MODE_LABELS = {
-  register: "회원가입",
-  member: "회원 로그인",
-  admin: "관리자 로그인",
+  register: "Register",
+  member: "Member Login",
+  admin: "Admin Login",
 };
 
 function getInitialState() {
@@ -24,6 +25,8 @@ export default function AuthConsole({
   adminSetupRequired,
   currentUser,
   initialMode,
+  landingPageDesign,
+  previewMode = false,
 }) {
   const router = useRouter();
   const [mode, setMode] = useState(initialMode);
@@ -34,6 +37,11 @@ export default function AuthConsole({
   const [memberForm, setMemberForm] = useState(getInitialState());
   const [adminForm, setAdminForm] = useState(getInitialState());
 
+  const design = useMemo(
+    () => normalizeLandingPageDesign(landingPageDesign),
+    [landingPageDesign],
+  );
+
   const activeForm = useMemo(() => {
     if (mode === "register") {
       return registerForm;
@@ -41,6 +49,44 @@ export default function AuthConsole({
 
     return mode === "admin" ? adminForm : memberForm;
   }, [adminForm, memberForm, mode, registerForm]);
+
+  const pageStyle = {
+    "--landing-page-bg": design.colors.pageBg,
+    "--landing-accent": design.colors.accent,
+    "--landing-text-primary": design.colors.textPrimary,
+    "--landing-text-secondary": design.colors.textSecondary,
+    "--landing-text-muted": design.colors.mutedText,
+    "--landing-top-button-bg": design.colors.topButtonBg,
+    "--landing-top-button-border": design.colors.topButtonBorder,
+    "--landing-panel-bg": design.colors.panelBg,
+    "--landing-panel-border": design.colors.panelBorder,
+    "--landing-panel-text": design.colors.panelText,
+    "--landing-input-bg": design.colors.inputBg,
+    "--landing-input-text": design.colors.inputText,
+    "--landing-primary-button-bg": design.colors.primaryButtonBg,
+    "--landing-primary-button-text": design.colors.primaryButtonText,
+    "--landing-secondary-button-bg": design.colors.secondaryButtonBg,
+    "--landing-secondary-button-text": design.colors.secondaryButtonText,
+    "--landing-signal-bg": design.colors.signalCardBg,
+    "--landing-signal-border": design.colors.signalCardBorder,
+    "--landing-content-max-width": `${design.layout.contentMaxWidth}px`,
+    "--landing-content-gap": `${design.layout.contentGap}px`,
+    "--landing-hero-title-max-width": `${design.layout.heroTitleMaxWidth}px`,
+    "--landing-hero-text-max-width": `${design.layout.heroTextMaxWidth}px`,
+    "--landing-panel-width": `${design.layout.panelWidth}px`,
+  };
+
+  const stageStyle = {
+    backgroundImage: `linear-gradient(90deg, rgba(5, 7, 11, 0.9) 0%, rgba(5, 7, 11, 0.62) 44%, rgba(5, 7, 11, 0.88) 100%), url("${design.backgroundImage}")`,
+  };
+
+  const heroStyle = {
+    transform: `translate(${design.layout.heroOffsetX}px, ${design.layout.heroOffsetY}px)`,
+  };
+
+  const panelStyle = {
+    transform: `translate(${design.layout.panelOffsetX}px, ${design.layout.panelOffsetY}px)`,
+  };
 
   function updateForm(nextValue) {
     if (mode === "register") {
@@ -57,6 +103,10 @@ export default function AuthConsole({
   }
 
   function handleFieldChange(event) {
+    if (previewMode) {
+      return;
+    }
+
     const { name, value } = event.target;
     updateForm({
       ...activeForm,
@@ -67,7 +117,7 @@ export default function AuthConsole({
   async function handleSubmit(event) {
     event.preventDefault();
 
-    if (pending) {
+    if (previewMode || pending) {
       return;
     }
 
@@ -97,24 +147,27 @@ export default function AuthConsole({
       const result = await response.json();
 
       if (!response.ok) {
-        setError(result.error || "요청을 처리하지 못했습니다.");
+        setError(result.error || "Request could not be completed.");
         return;
       }
 
-      setSuccess(result.message || "완료되었습니다.");
+      setSuccess(result.message || "Done.");
       router.push(result.user?.role === "admin" ? "/admin" : "/");
       router.refresh();
     } catch (networkError) {
       console.error(networkError);
-      setError("서버와 통신하지 못했습니다.");
+      setError("Unable to reach the server.");
     } finally {
       setPending(false);
     }
   }
 
+  const emailValue = previewMode ? design.previewEmail : activeForm.email;
+  const passwordValue = previewMode ? design.previewPassword : activeForm.password;
+
   return (
-    <main className={styles.page}>
-      <section className={styles.stage}>
+    <main className={styles.page} style={pageStyle}>
+      <section className={styles.stage} style={stageStyle}>
         <div className={styles.backdrop} />
 
         <div className={styles.topbar}>
@@ -124,8 +177,8 @@ export default function AuthConsole({
               <span className={styles.brandDot} />
             </div>
             <div>
-              <p className={styles.brandName}>Simple Score</p>
-              <p className={styles.brandMeta}>Secure music workspace</p>
+              <p className={styles.brandName}>{design.brandName}</p>
+              <p className={styles.brandMeta}>{design.brandMeta}</p>
             </div>
           </div>
 
@@ -133,90 +186,78 @@ export default function AuthConsole({
             {currentUser ? (
               <>
                 <Link className={styles.ghostLink} href="/">
-                  편집기
+                  Editor
                 </Link>
                 {currentUser.role === "admin" ? (
                   <Link className={styles.ghostLink} href="/admin">
-                    관리자
+                    Admin
                   </Link>
                 ) : null}
               </>
             ) : adminSetupRequired ? (
               <Link className={styles.ghostLink} href="/setup/admin">
-                관리자 초기설정
+                Admin Setup
               </Link>
             ) : null}
           </div>
         </div>
 
         <div className={styles.content}>
-          <section className={styles.hero}>
-            <p className={styles.eyebrow}>Simple Score Access</p>
-            <h1 className={styles.heroTitle}>
-              악보 작업을 시작하는 순간부터 분위기가 달라지는 입구.
-            </h1>
-            <p className={styles.heroText}>
-              정돈된 편집 환경, 분리된 관리자 접근, 조용한 보안 흐름을 한 화면에
-              담았습니다.
-            </p>
+          <section className={styles.hero} style={heroStyle}>
+            <p className={styles.eyebrow}>{design.heroEyebrow}</p>
+            <h1 className={styles.heroTitle}>{design.heroTitle}</h1>
+            <p className={styles.heroText}>{design.heroText}</p>
 
             <div className={styles.signalRow}>
-              <div className={styles.signalItem}>
-                <span className={styles.signalLabel}>Workspace</span>
-                <strong className={styles.signalValue}>Score Editor</strong>
-              </div>
-              <div className={styles.signalItem}>
-                <span className={styles.signalLabel}>Access</span>
-                <strong className={styles.signalValue}>Member + Admin</strong>
-              </div>
-              <div className={styles.signalItem}>
-                <span className={styles.signalLabel}>Session</span>
-                <strong className={styles.signalValue}>Protected</strong>
-              </div>
+              {design.signals.map((signal, index) => (
+                <div className={styles.signalItem} key={index}>
+                  <span className={styles.signalLabel}>{signal.label}</span>
+                  <strong className={styles.signalValue}>{signal.value}</strong>
+                </div>
+              ))}
             </div>
 
             <div className={styles.heroFooter}>
-              <p className={styles.heroHint}>
-                로그인 후 편집기로 바로 이동합니다.
-              </p>
-              <p className={styles.heroHint}>
-                관리자 계정은 운영 화면으로 연결됩니다.
-              </p>
+              {design.hints.map((hint, index) => (
+                <p className={styles.heroHint} key={index}>
+                  {hint}
+                </p>
+              ))}
             </div>
           </section>
 
-          <section className={styles.panel}>
+          <section className={styles.panel} style={panelStyle}>
             <div className={styles.panelInner}>
               <div className={styles.panelHeader}>
                 <div>
-                  <p className={styles.panelEyebrow}>Account Console</p>
-                  <h2 className={styles.panelTitle}>보안 계정 센터</h2>
+                  <p className={styles.panelEyebrow}>{design.panelEyebrow}</p>
+                  <h2 className={styles.panelTitle}>{design.panelTitle}</h2>
                 </div>
                 <div className={styles.statusPill}>
                   {currentUser
                     ? currentUser.role === "admin"
-                      ? "관리자 세션"
-                      : "회원 세션"
-                    : "로그인 필요"}
+                      ? "Admin Session"
+                      : "Member Session"
+                    : design.panelStatusLabel}
                 </div>
               </div>
 
               {currentUser ? (
                 <div className={styles.sessionBlock}>
                   <p className={styles.sessionLead}>
-                    현재 {currentUser.name} 님으로 접속 중입니다.
+                    Signed in as {currentUser.name}.
                   </p>
                   <p className={styles.sessionMeta}>
                     {currentUser.email} ·{" "}
-                    {currentUser.role === "admin" ? "관리자" : "회원"}
+                    {currentUser.role === "admin" ? "Admin" : "Member"}
                   </p>
                   <div className={styles.sessionActions}>
                     <Link className={styles.primaryAction} href="/">
-                      편집기 열기
+                      Open Editor
                     </Link>
                     {currentUser.role === "admin" ? (
                       <Link className={styles.secondaryAction} href="/admin">
-                        관리자 페이지
+                        Admin Page
                       </Link>
                     ) : null}
                     <LogoutButton className={styles.logoutAction} returnTo="/auth" />
@@ -247,23 +288,24 @@ export default function AuthConsole({
                     {mode === "register" ? (
                       <div className={styles.field}>
                         <label className={styles.label} htmlFor="register-name">
-                          이름
+                          Name
                         </label>
                         <input
                           className={styles.input}
                           id="register-name"
                           name="name"
                           onChange={handleFieldChange}
-                          placeholder="홍길동"
+                          placeholder="Jane Doe"
+                          readOnly={previewMode}
                           required
-                          value={registerForm.name}
+                          value={previewMode ? "Kim Simple" : registerForm.name}
                         />
                       </div>
                     ) : null}
 
                     <div className={styles.field}>
                       <label className={styles.label} htmlFor="auth-email">
-                        이메일
+                        Email
                       </label>
                       <input
                         autoComplete="email"
@@ -272,15 +314,16 @@ export default function AuthConsole({
                         name="email"
                         onChange={handleFieldChange}
                         placeholder="name@example.com"
+                        readOnly={previewMode}
                         required
                         type="email"
-                        value={activeForm.email}
+                        value={emailValue}
                       />
                     </div>
 
                     <div className={styles.field}>
                       <label className={styles.label} htmlFor="auth-password">
-                        비밀번호
+                        Password
                       </label>
                       <input
                         autoComplete={
@@ -290,10 +333,11 @@ export default function AuthConsole({
                         id="auth-password"
                         name="password"
                         onChange={handleFieldChange}
-                        placeholder="영문, 숫자, 특수문자 포함 10자 이상"
+                        placeholder="10+ chars with numbers and symbols"
+                        readOnly={previewMode}
                         required
                         type="password"
-                        value={activeForm.password}
+                        value={passwordValue}
                       />
                     </div>
 
@@ -306,29 +350,29 @@ export default function AuthConsole({
                         disabled={pending}
                         type="submit"
                       >
-                        {pending ? "처리 중..." : MODE_LABELS[mode]}
+                        {pending ? "Working..." : design.primaryActionLabel}
                       </button>
                       <Link className={styles.secondaryAction} href="/">
-                        편집기 홈
+                        {design.secondaryActionLabel}
                       </Link>
                     </div>
                   </form>
 
                   <div className={styles.notes}>
                     <p className={styles.noteLine}>
-                      비밀번호는 PBKDF2 해시로 저장되고 세션은 HttpOnly 쿠키로
-                      관리됩니다.
+                      Passwords are stored with PBKDF2 and sessions use HttpOnly
+                      cookies.
                     </p>
                     <p className={styles.noteLine}>
                       {adminSetupRequired ? (
                         <>
-                          첫 관리자 계정이 아직 없습니다.{" "}
+                          No admin account has been created yet.{" "}
                           <Link className={styles.inlineLink} href="/setup/admin">
-                            관리자 초기설정
+                            Create the first admin
                           </Link>
                         </>
                       ) : (
-                        "첫 관리자 계정은 이미 설정되어 있습니다."
+                        "The first admin account is already set up."
                       )}
                     </p>
                   </div>
