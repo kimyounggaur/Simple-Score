@@ -31,4 +31,4 @@ COPY --from=builder /app/.next/static ./.next/static
 # avoids write-permission failures when the app initializes db/secret files.
 EXPOSE 10000
 
-CMD ["node", "server.js"]
+CMD ["sh", "-c", "export HOSTNAME=$(printf '%s' \"$HOSTNAME\" | tr -d '[:space:]'); export PORT=$(printf '%s' \"$PORT\" | tr -d '[:space:]'); node server.js"]
