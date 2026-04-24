@@ -437,10 +437,229 @@ const dom = {
   lyricVerseButtons: document.querySelectorAll('.lyric-verse-btn'),
 };
 
+function readEditorAccessProfile() {
+  const fallback = {
+    level: 'guest',
+    isLoggedIn: false,
+    isAdmin: false,
+    permissions: {
+      basicEntry: true,
+      pdfExport: false,
+      fullTools: false,
+    },
+    labels: {
+      badge: '체험',
+      summary: '기본 입력 체험',
+    },
+    features: [],
+  };
+  const node = document.getElementById('simple-score-access-config');
+  if (!node?.textContent) return fallback;
+
+  try {
+    const parsed = JSON.parse(node.textContent);
+    return {
+      ...fallback,
+      ...parsed,
+      permissions: {
+        ...fallback.permissions,
+        ...(parsed.permissions || {}),
+      },
+      labels: {
+        ...fallback.labels,
+        ...(parsed.labels || {}),
+      },
+    };
+  } catch (error) {
+    console.error('Failed to read access profile:', error);
+    return fallback;
+  }
+}
+
+const editorAccess = readEditorAccessProfile();
+
+function hasPdfAccess() {
+  return Boolean(editorAccess.permissions?.pdfExport);
+}
+
+function hasFullToolsAccess() {
+  return Boolean(editorAccess.permissions?.fullTools);
+}
+
+function getAccessMessage(type) {
+  if (type === 'pdf') {
+    return 'PDF 내보내기는 로그인 후 사용할 수 있습니다.';
+  }
+
+  if (editorAccess.isAdmin) {
+    return '관리자 계정에서는 모든 기능을 사용할 수 있습니다.';
+  }
+
+  if (editorAccess.isLoggedIn) {
+    return '이 기능은 유료 이용권에서 활성화됩니다. 현재 계정에서는 PDF 내보내기까지 사용할 수 있습니다.';
+  }
+
+  return '이 기능은 유료 이용권에서 활성화됩니다. 지금은 음표, 쉼표, 가사, 코드 입력을 체험할 수 있습니다.';
+}
+
+function showAccessToast(message) {
+  const existing = document.getElementById('access-toast');
+  if (existing) {
+    existing.remove();
+  }
+
+  const toast = document.createElement('div');
+  toast.id = 'access-toast';
+  toast.className = 'access-toast';
+  toast.textContent = message;
+  document.body.appendChild(toast);
+
+  window.clearTimeout(showAccessToast._timer);
+  showAccessToast._timer = window.setTimeout(() => {
+    toast.remove();
+  }, 2600);
+}
+
+function requirePdfAccess() {
+  if (hasPdfAccess()) {
+    return true;
+  }
+
+  showAccessToast(getAccessMessage('pdf'));
+  return false;
+}
+
+function requireFullToolsAccess() {
+  if (hasFullToolsAccess()) {
+    return true;
+  }
+
+  showAccessToast(getAccessMessage('full'));
+  return false;
+}
+
+function lockButtonAccess(element, message) {
+  if (!element) return;
+
+  element.classList.add('access-locked', 'access-locked-button');
+  element.setAttribute('aria-disabled', 'true');
+  element.title = message;
+  element.addEventListener(
+    'click',
+    (event) => {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      showAccessToast(message);
+    },
+    true,
+  );
+}
+
+function lockInputAccess(element, message) {
+  if (!element) return;
+
+  element.classList.add('access-locked', 'access-locked-input');
+  element.disabled = true;
+  element.title = message;
+}
+
+function lockMenuAccess(element, message) {
+  if (!element) return;
+
+  element.classList.add('access-locked-menu');
+  const trigger = element.querySelector(':scope > span');
+  if (!trigger) return;
+
+  trigger.title = message;
+  trigger.addEventListener(
+    'click',
+    (event) => {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      showAccessToast(message);
+    },
+    true,
+  );
+}
+
+function applyAccessLocks() {
+  if (!hasPdfAccess()) {
+    const pdfMessage = getAccessMessage('pdf');
+    lockButtonAccess(dom.btnPDF, pdfMessage);
+    document
+      .querySelectorAll('[data-action="export-pdf"]')
+      .forEach((button) => lockButtonAccess(button, pdfMessage));
+  }
+
+  if (!hasFullToolsAccess()) {
+    const fullMessage = getAccessMessage('full');
+    [
+      dom.keySig,
+      dom.timeSig,
+      dom.instrument,
+      dom.bpmSlider,
+      dom.slMPL,
+      dom.slScale,
+      dom.slSpace,
+      dom.slMW,
+      dom.toggleMeasureNumbers,
+      dom.noteHeadColor,
+      dom.noteStemColor,
+      dom.lyricFont,
+      dom.lyricSize,
+      dom.lyricOffset,
+      dom.lyricWeight,
+      dom.lyricColor,
+      document.getElementById('gap-panel-slider'),
+      document.getElementById('gap-panel-number'),
+    ].forEach((element) => lockInputAccess(element, fullMessage));
+
+    [
+      dom.btnPlay,
+      dom.btnStop,
+      dom.btnPNG,
+      dom.lyricItalicToggle,
+      document.getElementById('btn-gap-mode'),
+      document.getElementById('gap-panel-reset'),
+      ...dom.repeatButtons,
+      ...dom.articButtons,
+      ...dom.dynamicButtons,
+      ...dom.voiceButtons,
+      ...dom.lyricVerseButtons,
+      ...document.querySelectorAll('.form-btn'),
+      ...document.querySelectorAll('[data-action="export-png"]'),
+      ...document.querySelectorAll('[data-action="set-mpl"]'),
+      ...document.querySelectorAll('[data-action="set-key"]'),
+      ...document.querySelectorAll('[data-action="set-time"]'),
+      ...document.querySelectorAll('[data-action="set-repeat"]'),
+      ...document.querySelectorAll('[data-action="set-artic"]'),
+      ...document.querySelectorAll('[data-action="set-dynamic"]'),
+      ...document.querySelectorAll('[data-action="set-form"]'),
+      ...document.querySelectorAll('[data-action="set-voice"]'),
+      ...document.querySelectorAll('[data-action="set-verse"]'),
+      ...document.querySelectorAll('[data-action="toggle-measure-numbers"]'),
+    ].forEach((element) => lockButtonAccess(element, fullMessage));
+
+    [
+      document.getElementById('mbi-form'),
+      document.getElementById('mbi-repeat'),
+      document.getElementById('mbi-expr'),
+      document.getElementById('mbi-view'),
+      document.getElementById('mbi-score'),
+    ].forEach((element) => lockMenuAccess(element, fullMessage));
+
+    document.getElementById('lyric-style-section')?.classList.add('access-locked');
+    document.getElementById('toolbar-settings')?.classList.add('access-locked');
+    document.getElementById('toolbar-note-color')?.classList.add('access-locked');
+  }
+}
+
 
 /* ═══════════════════════════════════════
    §3  AUDIO ENGINE
    ═══════════════════════════════════════ */
+
+applyAccessLocks();
 
 function getAudioCtx() {
   if (!appState.audioCtx) appState.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -448,6 +667,10 @@ function getAudioCtx() {
 }
 
 async function loadInstrument(name) {
+  if (!hasFullToolsAccess()) {
+    return;
+  }
+
   showLoading(true);
   try { appState.instrument = await Soundfont.instrument(getAudioCtx(), name); }
   catch (e) { console.error('Instrument load failed:', e); }
@@ -2363,10 +2586,10 @@ document.addEventListener('keydown', (e) => {
   if (kl === 'l' && !ctrl) { e.preventDefault(); toggleChordMode(); return; }
 
   /* ── T key: toggle tie (붙임줄) ── */
-  if (kl === 't' && !ctrl) { e.preventDefault(); toggleTie(); return; }
+  if (kl === 't' && !ctrl) { e.preventDefault(); if (!requireFullToolsAccess()) return; toggleTie(); return; }
 
   /* ── S key: toggle slur (이음줄) ── */
-  if (kl === 's' && !ctrl) { e.preventDefault(); toggleSlur(); return; }
+  if (kl === 's' && !ctrl) { e.preventDefault(); if (!requireFullToolsAccess()) return; toggleSlur(); return; }
 
   /* ── Escape exits dynamics / articulation / repeat / song form / gap mode ── */
   if (key === 'Escape') {
@@ -2405,7 +2628,7 @@ document.addEventListener('keydown', (e) => {
   if (key === '.')                  { e.preventDefault(); toggleDot(); return; }
   if (key === 'Delete')            { e.preventDefault(); deleteAtCursor(); return; }
   if (key === 'Backspace')         { e.preventDefault(); if (appState.cursorIndex > 0) { appState.cursorIndex--; deleteAtCursor(); } return; }
-  if (key === ' ')                 { e.preventDefault(); appState.isPlaying ? stopPlayback() : startPlayback(); return; }
+  if (key === ' ')                 { e.preventDefault(); if (!requireFullToolsAccess()) return; appState.isPlaying ? stopPlayback() : startPlayback(); return; }
   if (ctrl && kl === 'z')          { e.preventDefault(); const _n = activeNotes(); if (_n.length) { _n.pop(); setActiveCursor(Math.min(activeCursor(), _n.length)); renderScore(); } return; }
 });
 
@@ -2415,6 +2638,7 @@ document.addEventListener('keydown', (e) => {
    ═══════════════════════════════════════ */
 
 dom.canvas.addEventListener('dblclick', (e) => {
+  if (!requireFullToolsAccess()) return;
   e.preventDefault();
   clearTimeout(_clickTimer); _pendingClick = null;
   const mIdx = getMeasureIndexFromXY(e.offsetX, e.offsetY);
@@ -2430,6 +2654,7 @@ function getMeasureIndexFromXY(x, y) {
 }
 
 function playMeasure(measureIndex) {
+  if (!requireFullToolsAccess()) return;
   stopPlayback();
   const measures   = splitIntoMeasures(appState.notes);
   const v2measures = splitIntoMeasures(appState.voice2Notes);
@@ -2480,6 +2705,7 @@ function stopPlayback() {
 }
 
 function startPlayback() {
+  if (!requireFullToolsAccess()) return;
   if (!appState.notes.length && !appState.voice2Notes.length) return;
   stopPlayback(); appState.isPlaying = true;
   dom.btnPlay.classList.add('playing');
@@ -2549,6 +2775,7 @@ function prepareExport() {
 }
 
 async function exportToPNG() {
+  if (!requireFullToolsAccess()) return;
   const btn = dom.btnPNG;
   btn.classList.add('busy'); btn.querySelector('span').textContent = 'Saving…';
   document.body.style.cursor = 'wait';
@@ -2564,6 +2791,7 @@ async function exportToPNG() {
 }
 
 async function exportToPDF() {
+  if (!requirePdfAccess()) return;
   const btn = dom.btnPDF;
   btn.classList.add('busy'); btn.querySelector('span').textContent = 'Saving…';
   document.body.style.cursor = 'wait';
@@ -2606,6 +2834,7 @@ function toggleDot() {
 }
 
 function toggleTie() {
+  if (!requireFullToolsAccess()) return;
   const notes = activeNotes();
   const ci    = activeCursor();
   if (ci >= notes.length) return;
@@ -2615,6 +2844,7 @@ function toggleTie() {
 }
 
 function toggleSlur() {
+  if (!requireFullToolsAccess()) return;
   const notes = activeNotes();
   const ci    = activeCursor();
   if (ci >= notes.length) return;
@@ -2640,6 +2870,7 @@ function exitRepeatMode() {
 
 document.querySelectorAll('.repeat-btn').forEach(btn => {
   btn.addEventListener('click', () => {
+    if (!requireFullToolsAccess()) return;
     const type = btn.dataset.repeat;
     if (appState.repeatMode && appState.repeatSelected === type) {
       exitRepeatMode();
@@ -2671,6 +2902,7 @@ function exitArticulationMode() {
 
 document.querySelectorAll('.artic-btn').forEach(btn => {
   btn.addEventListener('click', () => {
+    if (!requireFullToolsAccess()) return;
     const type = btn.dataset.artic;
     if (appState.articulationMode && appState.articulationSelected === type) {
       exitArticulationMode();
@@ -2702,6 +2934,7 @@ function exitDynamicsMode() {
 
 document.querySelectorAll('.dynamic-btn').forEach(btn => {
   btn.addEventListener('click', () => {
+    if (!requireFullToolsAccess()) return;
     const type = btn.dataset.dynamic;
     if (appState.dynamicsMode && appState.dynamicsSelected === type) {
       exitDynamicsMode();
@@ -2742,7 +2975,10 @@ function switchVoice(v) {
 }
 
 document.querySelectorAll('.voice-btn').forEach(btn => {
-  btn.addEventListener('click', () => switchVoice(Number(btn.dataset.voice)));
+  btn.addEventListener('click', () => {
+    if (!requireFullToolsAccess()) return;
+    switchVoice(Number(btn.dataset.voice));
+  });
 });
 
 /* ── Lyric Verse (가사 성부) ── */
@@ -2761,7 +2997,10 @@ function switchLyricVerse(v) {
 }
 
 document.querySelectorAll('.lyric-verse-btn').forEach(btn => {
-  btn.addEventListener('click', () => switchLyricVerse(Number(btn.dataset.verse)));
+  btn.addEventListener('click', () => {
+    if (!requireFullToolsAccess()) return;
+    switchLyricVerse(Number(btn.dataset.verse));
+  });
 });
 
 /* ── Song Form Mode ── */
@@ -2775,6 +3014,7 @@ function exitSongFormMode() {
 
 document.querySelectorAll('.form-btn').forEach(btn => {
   btn.addEventListener('click', () => {
+    if (!requireFullToolsAccess()) return;
     const form = btn.dataset.form;
     if (appState.songFormMode && appState.songFormSelected === form) {
       exitSongFormMode();
@@ -2832,6 +3072,7 @@ function repositionGapPanel() {
 }
 
 document.getElementById('btn-gap-mode').addEventListener('click', () => {
+  if (!requireFullToolsAccess()) return;
   if (appState.measureGapMode) {
     exitGapMode();
   } else {
@@ -2860,21 +3101,25 @@ function applyGapValue(mIdx, val) {
 }
 
 document.getElementById('gap-panel-slider').addEventListener('input', (e) => {
+  if (!requireFullToolsAccess()) return;
   const mIdx = Number(document.getElementById('gap-panel').dataset.measureIndex);
   if (!isNaN(mIdx)) applyGapValue(mIdx, Number(e.target.value));
 });
 
 document.getElementById('gap-panel-number').addEventListener('input', (e) => {
+  if (!requireFullToolsAccess()) return;
   const mIdx = Number(document.getElementById('gap-panel').dataset.measureIndex);
   if (!isNaN(mIdx) && e.target.value !== '') applyGapValue(mIdx, Number(e.target.value));
 });
 
 document.getElementById('gap-panel-number').addEventListener('change', (e) => {
+  if (!requireFullToolsAccess()) return;
   const mIdx = Number(document.getElementById('gap-panel').dataset.measureIndex);
   if (!isNaN(mIdx)) applyGapValue(mIdx, Number(e.target.value) || 0);
 });
 
 document.getElementById('gap-panel-reset').addEventListener('click', () => {
+  if (!requireFullToolsAccess()) return;
   const mIdx = Number(document.getElementById('gap-panel').dataset.measureIndex);
   if (!isNaN(mIdx)) applyGapValue(mIdx, 0);
 });
@@ -2888,34 +3133,62 @@ document.getElementById('gap-panel-close').addEventListener('click', () => {
 
 /* ── Lyric Style Controls ── */
 dom.lyricFont.addEventListener('change', () => {
+  if (!requireFullToolsAccess()) {
+    dom.lyricFont.value = appState.lyricStyle.font;
+    return;
+  }
   appState.lyricStyle.font = dom.lyricFont.value;
   renderScore();
 });
 dom.lyricSize.addEventListener('input', () => {
+  if (!requireFullToolsAccess()) {
+    dom.lyricSize.value = appState.lyricStyle.size;
+    dom.lyricSizeVal.textContent = appState.lyricStyle.size;
+    return;
+  }
   appState.lyricStyle.size = Number(dom.lyricSize.value);
   dom.lyricSizeVal.textContent = dom.lyricSize.value;
   renderScore();
 });
 dom.lyricOffset.addEventListener('input', () => {
+  if (!requireFullToolsAccess()) {
+    dom.lyricOffset.value = appState.lyricStyle.offsetY;
+    dom.lyricOffsetVal.textContent = appState.lyricStyle.offsetY;
+    return;
+  }
   appState.lyricStyle.offsetY = Number(dom.lyricOffset.value);
   dom.lyricOffsetVal.textContent = dom.lyricOffset.value;
   renderScore();
 });
 dom.lyricWeight.addEventListener('change', () => {
+  if (!requireFullToolsAccess()) {
+    dom.lyricWeight.value = appState.lyricStyle.weight;
+    return;
+  }
   appState.lyricStyle.weight = dom.lyricWeight.value;
   renderScore();
 });
 dom.lyricItalicToggle.addEventListener('click', () => {
+  if (!requireFullToolsAccess()) return;
   appState.lyricStyle.italic = !appState.lyricStyle.italic;
   dom.lyricItalicToggle.classList.toggle('active', appState.lyricStyle.italic);
   renderScore();
 });
 dom.lyricColor.addEventListener('input', () => {
+  if (!requireFullToolsAccess()) {
+    dom.lyricColor.value = appState.lyricStyle.color;
+    dom.lyricColorHex.textContent = appState.lyricStyle.color;
+    return;
+  }
   appState.lyricStyle.color = dom.lyricColor.value;
   dom.lyricColorHex.textContent = dom.lyricColor.value;
   renderScore();
 });
 dom.keySig.addEventListener('change', () => {
+  if (!requireFullToolsAccess()) {
+    dom.keySig.value = appState.keySignature;
+    return;
+  }
   const newKey = dom.keySig.value;
   const oldKey = appState.keySignature;
 
@@ -2930,9 +3203,30 @@ dom.keySig.addEventListener('change', () => {
 
   showTransposeModal(oldKey, newKey);
 });
-dom.timeSig.addEventListener('change', () => { appState.timeSignature = dom.timeSig.value; renderScore(); });
-dom.instrument.addEventListener('change', () => loadInstrument(dom.instrument.value));
-dom.bpmSlider.addEventListener('input', () => { appState.bpm = Number(dom.bpmSlider.value); dom.bpmDisplay.textContent = appState.bpm; });
+dom.timeSig.addEventListener('change', () => {
+  if (!requireFullToolsAccess()) {
+    dom.timeSig.value = appState.timeSignature;
+    return;
+  }
+  appState.timeSignature = dom.timeSig.value;
+  renderScore();
+});
+dom.instrument.addEventListener('change', () => {
+  if (!requireFullToolsAccess()) {
+    dom.instrument.value = 'acoustic_grand_piano';
+    return;
+  }
+  loadInstrument(dom.instrument.value);
+});
+dom.bpmSlider.addEventListener('input', () => {
+  if (!requireFullToolsAccess()) {
+    dom.bpmSlider.value = appState.bpm;
+    dom.bpmDisplay.textContent = appState.bpm;
+    return;
+  }
+  appState.bpm = Number(dom.bpmSlider.value);
+  dom.bpmDisplay.textContent = appState.bpm;
+});
 dom.btnPlay.addEventListener('click', startPlayback);
 dom.btnStop.addEventListener('click', stopPlayback);
 dom.btnUndo.addEventListener('click', () => {
@@ -2960,21 +3254,41 @@ dom.btnPDF.addEventListener('click', exportToPDF);
 
 /* ── Layout Sliders ── */
 dom.slMPL.addEventListener('input', () => {
+  if (!requireFullToolsAccess()) {
+    dom.slMPL.value = appState.layout.measuresPerLine;
+    dom.valMPL.textContent = appState.layout.measuresPerLine;
+    return;
+  }
   appState.layout.measuresPerLine = Number(dom.slMPL.value);
   dom.valMPL.textContent = dom.slMPL.value;
   renderScore();
 });
 dom.slScale.addEventListener('input', () => {
+  if (!requireFullToolsAccess()) {
+    dom.slScale.value = appState.layout.staffLineSpacing;
+    dom.valScale.textContent = appState.layout.staffLineSpacing;
+    return;
+  }
   appState.layout.staffLineSpacing = Number(dom.slScale.value);
   dom.valScale.textContent = dom.slScale.value;
   renderScore();
 });
 dom.slSpace.addEventListener('input', () => {
+  if (!requireFullToolsAccess()) {
+    dom.slSpace.value = appState.layout.staffSpacing;
+    dom.valSpace.textContent = appState.layout.staffSpacing;
+    return;
+  }
   appState.layout.staffSpacing = Number(dom.slSpace.value);
   dom.valSpace.textContent = dom.slSpace.value;
   renderScore();
 });
 dom.slMW.addEventListener('input', () => {
+  if (!requireFullToolsAccess()) {
+    dom.slMW.value = appState.layout.measureWidth;
+    dom.valMW.textContent = appState.layout.measureWidth;
+    return;
+  }
   appState.layout.measureWidth = Number(dom.slMW.value);
   dom.valMW.textContent = dom.slMW.value;
   renderScore();
@@ -2982,17 +3296,31 @@ dom.slMW.addEventListener('input', () => {
 
 /* ── Measure Numbers ── */
 dom.toggleMeasureNumbers.addEventListener('change', () => {
+  if (!requireFullToolsAccess()) {
+    dom.toggleMeasureNumbers.checked = appState.showMeasureNumbers;
+    return;
+  }
   appState.showMeasureNumbers = dom.toggleMeasureNumbers.checked;
   renderScore();
 });
 
 /* ── Note Color ── */
 dom.noteHeadColor.addEventListener('input', () => {
+  if (!requireFullToolsAccess()) {
+    dom.noteHeadColor.value = appState.noteColor.head;
+    dom.noteHeadColorHex.textContent = appState.noteColor.head;
+    return;
+  }
   appState.noteColor.head = dom.noteHeadColor.value;
   dom.noteHeadColorHex.textContent = dom.noteHeadColor.value;
   renderScore();
 });
 dom.noteStemColor.addEventListener('input', () => {
+  if (!requireFullToolsAccess()) {
+    dom.noteStemColor.value = appState.noteColor.stem;
+    dom.noteStemColorHex.textContent = appState.noteColor.stem;
+    return;
+  }
   appState.noteColor.stem = dom.noteStemColor.value;
   dom.noteStemColorHex.textContent = dom.noteStemColor.value;
   renderScore();
@@ -3257,12 +3585,14 @@ function updateStatusBar() {
 
         /* 보기 */
         case 'toggle-measure-numbers':
+          if (!requireFullToolsAccess()) break;
           appState.showMeasureNumbers = !appState.showMeasureNumbers;
           dom.toggleMeasureNumbers.checked = appState.showMeasureNumbers;
           renderScore();
           syncMarks();
           break;
         case 'set-mpl':
+          if (!requireFullToolsAccess()) break;
           closeAll();
           appState.layout.measuresPerLine = Number(value);
           dom.slMPL.value = value;

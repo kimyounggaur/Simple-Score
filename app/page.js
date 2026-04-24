@@ -1,9 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
-import { redirect } from "next/navigation";
-import AccountDock from "./components/AccountDock";
+import EditorHeaderAccess from "./components/EditorHeaderAccess";
 import LegacyScripts from "./LegacyScripts";
 import { getCurrentUser } from "../lib/auth";
+import { buildAccessProfile } from "../lib/access";
 import { hasAdminUser } from "../lib/db";
 
 function getLegacyBodyHtml() {
@@ -23,16 +23,21 @@ export const dynamic = "force-dynamic";
 export default async function Home() {
   const currentUser = await getCurrentUser();
   const adminSetupRequired = !(await hasAdminUser());
-
-  if (!currentUser) {
-    redirect("/auth");
-  }
+  const accessProfile = buildAccessProfile(currentUser);
 
   return (
     <>
-      <AccountDock
+      <EditorHeaderAccess
+        accessProfile={accessProfile}
         adminSetupRequired={adminSetupRequired}
-        user={currentUser}
+        currentUser={currentUser}
+      />
+      <script
+        id="simple-score-access-config"
+        type="application/json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(accessProfile),
+        }}
       />
       <div
         id="legacy-root"

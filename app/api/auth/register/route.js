@@ -68,6 +68,7 @@ export async function POST(request) {
       passwordSalt,
       role: "member",
       status: "active",
+      accessTier: "member",
     });
     const cookieStore = await cookies();
 

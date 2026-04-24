@@ -1,15 +1,17 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import LogoutButton from "../components/LogoutButton";
+import UserAccessTierControl from "./UserAccessTierControl";
 import styles from "./admin.module.css";
 import { getCurrentUser } from "../../lib/auth";
+import { resolveAccessLevel } from "../../lib/access";
 import { listUsers } from "../../lib/db";
 
 export const dynamic = "force-dynamic";
 
 function formatDate(value) {
   if (!value) {
-    return "아직 없음";
+    return "기록 없음";
   }
 
   return new Intl.DateTimeFormat("ko-KR", {
@@ -31,8 +33,10 @@ export default async function AdminPage() {
 
   const users = await listUsers();
   const memberCount = users.filter((user) => user.role === "member").length;
+  const paidCount = users.filter(
+    (user) => resolveAccessLevel(user) === "paid" || user.role === "admin",
+  ).length;
   const adminCount = users.filter((user) => user.role === "admin").length;
-  const activeCount = users.filter((user) => user.status === "active").length;
   const latestSignup = users[0]?.createdAt || null;
 
   return (
@@ -41,10 +45,10 @@ export default async function AdminPage() {
         <section className={styles.header}>
           <div>
             <div className={styles.eyebrow}>관리자 콘솔</div>
-            <h1 className={styles.title}>회원 데이터와 운영 화면</h1>
+            <h1 className={styles.title}>심플스코어 사용자와 이용권 관리</h1>
             <p className={styles.text}>
-              이 화면은 관리자만 접근할 수 있습니다. 현재 로그인 계정은{" "}
-              {currentUser.name} ({currentUser.email}) 입니다.
+              현재 <strong>{currentUser.name}</strong> 계정으로 로그인되어 있습니다.
+              회원과 유료 이용권을 여기서 바로 조정할 수 있습니다.
             </p>
           </div>
 
@@ -53,10 +57,7 @@ export default async function AdminPage() {
               랜딩 디자인
             </Link>
             <Link className={styles.primary} href="/">
-              편집기 열기
-            </Link>
-            <Link className={styles.secondary} href="/auth">
-              계정 센터
+              편집기로 이동
             </Link>
             <LogoutButton className={styles.logout} returnTo="/auth?mode=admin" />
           </div>
@@ -64,7 +65,7 @@ export default async function AdminPage() {
 
         <section className={styles.stats}>
           <article className={styles.statCard}>
-            <div className={styles.statLabel}>전체 회원</div>
+            <div className={styles.statLabel}>전체 사용자</div>
             <div className={styles.statValue}>{users.length}</div>
           </article>
           <article className={styles.statCard}>
@@ -72,33 +73,36 @@ export default async function AdminPage() {
             <div className={styles.statValue}>{memberCount}</div>
           </article>
           <article className={styles.statCard}>
-            <div className={styles.statLabel}>관리자 계정</div>
-            <div className={styles.statValue}>{adminCount}</div>
+            <div className={styles.statLabel}>전체 기능 가능</div>
+            <div className={styles.statValue}>{paidCount}</div>
           </article>
           <article className={styles.statCard}>
-            <div className={styles.statLabel}>활성 계정</div>
-            <div className={styles.statValue}>{activeCount}</div>
+            <div className={styles.statLabel}>관리자 계정</div>
+            <div className={styles.statValue}>{adminCount}</div>
           </article>
         </section>
 
         <section className={styles.tableWrap}>
           <div className={styles.tableHeader}>
             <div>
-              <h2 className={styles.tableTitle}>회원 목록</h2>
-              <p className={styles.tableText}>최근 가입 {formatDate(latestSignup)}</p>
+              <h2 className={styles.tableTitle}>사용자 목록</h2>
+              <p className={styles.tableText}>
+                최근 가입 {formatDate(latestSignup)}
+              </p>
             </div>
           </div>
 
           <div className={styles.tableScroll}>
             {users.length === 0 ? (
-              <div className={styles.empty}>아직 회원이 없습니다.</div>
+              <div className={styles.empty}>등록된 사용자가 아직 없습니다.</div>
             ) : (
               <table className={styles.table}>
                 <thead>
                   <tr>
                     <th>이름</th>
                     <th>이메일</th>
-                    <th>권한</th>
+                    <th>역할</th>
+                    <th>이용 등급</th>
                     <th>상태</th>
                     <th>가입일</th>
                     <th>최근 로그인</th>
@@ -121,8 +125,11 @@ export default async function AdminPage() {
                         </span>
                       </td>
                       <td>
+                        <UserAccessTierControl user={user} />
+                      </td>
+                      <td>
                         <span className={`${styles.badge} ${styles.activeBadge}`}>
-                          활성
+                          {user.status === "active" ? "활성" : "비활성"}
                         </span>
                       </td>
                       <td>{formatDate(user.createdAt)}</td>
