@@ -77,15 +77,15 @@ export default function DesignEditor({ initialDesign }) {
       const result = await response.json();
 
       if (!response.ok) {
-        setError(result.error || "Save failed.");
+        setError(result.error || "저장에 실패했습니다.");
         return;
       }
 
       setDesign(normalizeLandingPageDesign(result.design));
-      setMessage("Design settings saved.");
+      setMessage("디자인 설정을 저장했습니다.");
     } catch (saveError) {
       console.error(saveError);
-      setError("Unable to save design settings.");
+      setError("디자인 설정을 저장하지 못했습니다.");
     } finally {
       setPending(false);
     }
@@ -98,33 +98,33 @@ export default function DesignEditor({ initialDesign }) {
   }
 
   const colorFields = [
-    ["colors.pageBg", "Page background"],
-    ["colors.accent", "Accent"],
-    ["colors.textPrimary", "Primary text"],
-    ["colors.textSecondary", "Secondary text"],
-    ["colors.mutedText", "Muted text"],
-    ["colors.panelBg", "Panel background"],
-    ["colors.panelBorder", "Panel border"],
-    ["colors.inputBg", "Input background"],
-    ["colors.inputText", "Input text"],
-    ["colors.primaryButtonBg", "Primary button background"],
-    ["colors.primaryButtonText", "Primary button text"],
-    ["colors.secondaryButtonBg", "Secondary button background"],
-    ["colors.secondaryButtonText", "Secondary button text"],
-    ["colors.signalCardBg", "Signal card background"],
-    ["colors.signalCardBorder", "Signal card border"],
+    ["colors.pageBg", "페이지 배경"],
+    ["colors.accent", "강조색"],
+    ["colors.textPrimary", "주요 텍스트"],
+    ["colors.textSecondary", "보조 텍스트"],
+    ["colors.mutedText", "약한 텍스트"],
+    ["colors.panelBg", "패널 배경"],
+    ["colors.panelBorder", "패널 테두리"],
+    ["colors.inputBg", "입력창 배경"],
+    ["colors.inputText", "입력창 텍스트"],
+    ["colors.primaryButtonBg", "기본 버튼 배경"],
+    ["colors.primaryButtonText", "기본 버튼 텍스트"],
+    ["colors.secondaryButtonBg", "보조 버튼 배경"],
+    ["colors.secondaryButtonText", "보조 버튼 텍스트"],
+    ["colors.signalCardBg", "신호 카드 배경"],
+    ["colors.signalCardBorder", "신호 카드 테두리"],
   ];
 
   const rangeFields = [
-    ["layout.contentMaxWidth", "Content width", 960, 1600, 10],
-    ["layout.contentGap", "Content gap", 12, 120, 2],
-    ["layout.heroTitleMaxWidth", "Hero title width", 320, 980, 10],
-    ["layout.heroTextMaxWidth", "Hero text width", 260, 900, 10],
-    ["layout.panelWidth", "Panel width", 320, 620, 10],
-    ["layout.heroOffsetX", "Hero offset X", -240, 240, 1],
-    ["layout.heroOffsetY", "Hero offset Y", -240, 240, 1],
-    ["layout.panelOffsetX", "Panel offset X", -240, 240, 1],
-    ["layout.panelOffsetY", "Panel offset Y", -240, 240, 1],
+    ["layout.contentMaxWidth", "콘텐츠 폭", 960, 1600, 10],
+    ["layout.contentGap", "콘텐츠 간격", 12, 120, 2],
+    ["layout.heroTitleMaxWidth", "히어로 제목 폭", 320, 980, 10],
+    ["layout.heroTextMaxWidth", "히어로 본문 폭", 260, 900, 10],
+    ["layout.panelWidth", "패널 폭", 320, 620, 10],
+    ["layout.heroOffsetX", "히어로 X 위치", -240, 240, 1],
+    ["layout.heroOffsetY", "히어로 Y 위치", -240, 240, 1],
+    ["layout.panelOffsetX", "패널 X 위치", -240, 240, 1],
+    ["layout.panelOffsetY", "패널 Y 위치", -240, 240, 1],
   ];
 
   return (
@@ -133,38 +133,38 @@ export default function DesignEditor({ initialDesign }) {
         <div className={styles.panel}>
           <div className={styles.panelHeader}>
             <div>
-              <h2 className={styles.panelTitle}>Content</h2>
+              <h2 className={styles.panelTitle}>콘텐츠</h2>
               <p className={styles.panelText}>
-                Update headline copy, button text, and supporting labels.
+                제목, 설명, 버튼 문구, 보조 문구를 수정합니다.
               </p>
             </div>
           </div>
 
           <div className={styles.formGrid}>
             <label className={styles.field}>
-              <span>Brand name</span>
+              <span>브랜드명</span>
               <input value={design.brandName} onChange={handleText("brandName")} />
             </label>
             <label className={styles.field}>
-              <span>Brand meta</span>
+              <span>브랜드 보조 문구</span>
               <input value={design.brandMeta} onChange={handleText("brandMeta")} />
             </label>
             <label className={styles.field}>
-              <span>Hero eyebrow</span>
+              <span>히어로 상단 라벨</span>
               <input
                 value={design.heroEyebrow}
                 onChange={handleText("heroEyebrow")}
               />
             </label>
             <label className={styles.field}>
-              <span>Panel eyebrow</span>
+              <span>패널 상단 라벨</span>
               <input
                 value={design.panelEyebrow}
                 onChange={handleText("panelEyebrow")}
               />
             </label>
             <label className={`${styles.field} ${styles.fieldFull}`}>
-              <span>Hero title</span>
+              <span>히어로 제목</span>
               <textarea
                 rows={4}
                 value={design.heroTitle}
@@ -172,7 +172,7 @@ export default function DesignEditor({ initialDesign }) {
               />
             </label>
             <label className={`${styles.field} ${styles.fieldFull}`}>
-              <span>Hero text</span>
+              <span>히어로 설명</span>
               <textarea
                 rows={3}
                 value={design.heroText}
@@ -180,46 +180,46 @@ export default function DesignEditor({ initialDesign }) {
               />
             </label>
             <label className={styles.field}>
-              <span>Panel title</span>
+              <span>패널 제목</span>
               <input value={design.panelTitle} onChange={handleText("panelTitle")} />
             </label>
             <label className={styles.field}>
-              <span>Status badge</span>
+              <span>상태 배지</span>
               <input
                 value={design.panelStatusLabel}
                 onChange={handleText("panelStatusLabel")}
               />
             </label>
             <label className={styles.field}>
-              <span>Primary button label</span>
+              <span>기본 버튼 문구</span>
               <input
                 value={design.primaryActionLabel}
                 onChange={handleText("primaryActionLabel")}
               />
             </label>
             <label className={styles.field}>
-              <span>Secondary button label</span>
+              <span>보조 버튼 문구</span>
               <input
                 value={design.secondaryActionLabel}
                 onChange={handleText("secondaryActionLabel")}
               />
             </label>
             <label className={styles.field}>
-              <span>Preview email</span>
+              <span>미리보기 이메일</span>
               <input
                 value={design.previewEmail}
                 onChange={handleText("previewEmail")}
               />
             </label>
             <label className={styles.field}>
-              <span>Preview password</span>
+              <span>미리보기 비밀번호</span>
               <input
                 value={design.previewPassword}
                 onChange={handleText("previewPassword")}
               />
             </label>
             <label className={`${styles.field} ${styles.fieldFull}`}>
-              <span>Background image URL</span>
+              <span>배경 이미지 URL</span>
               <input
                 value={design.backgroundImage}
                 onChange={handleText("backgroundImage")}
@@ -231,9 +231,9 @@ export default function DesignEditor({ initialDesign }) {
         <div className={styles.panel}>
           <div className={styles.panelHeader}>
             <div>
-              <h2 className={styles.panelTitle}>Signals and hints</h2>
+              <h2 className={styles.panelTitle}>신호 카드와 안내문</h2>
               <p className={styles.panelText}>
-                Tune the three signal cards and the footer hints below them.
+                세 개의 신호 카드와 하단 안내문을 수정합니다.
               </p>
             </div>
           </div>
@@ -242,14 +242,14 @@ export default function DesignEditor({ initialDesign }) {
             {design.signals.map((signal, index) => (
               <div className={styles.signalGroup} key={index}>
                 <label className={styles.field}>
-                  <span>Card {index + 1} label</span>
+                  <span>카드 {index + 1} 라벨</span>
                   <input
                     value={signal.label}
                     onChange={handleText(`signals.${index}.label`)}
                   />
                 </label>
                 <label className={styles.field}>
-                  <span>Card {index + 1} value</span>
+                  <span>카드 {index + 1} 값</span>
                   <input
                     value={signal.value}
                     onChange={handleText(`signals.${index}.value`)}
@@ -259,7 +259,7 @@ export default function DesignEditor({ initialDesign }) {
             ))}
             {design.hints.map((hint, index) => (
               <label className={`${styles.field} ${styles.fieldFull}`} key={index}>
-                <span>Hint {index + 1}</span>
+                <span>안내문 {index + 1}</span>
                 <input value={hint} onChange={handleText(`hints.${index}`)} />
               </label>
             ))}
@@ -269,9 +269,9 @@ export default function DesignEditor({ initialDesign }) {
         <div className={styles.panel}>
           <div className={styles.panelHeader}>
             <div>
-              <h2 className={styles.panelTitle}>Colors</h2>
+              <h2 className={styles.panelTitle}>색상</h2>
               <p className={styles.panelText}>
-                Update the visual system while preview changes in place.
+                색상을 바꾸면 오른쪽 미리보기에 바로 반영됩니다.
               </p>
             </div>
           </div>
@@ -296,9 +296,9 @@ export default function DesignEditor({ initialDesign }) {
         <div className={styles.panel}>
           <div className={styles.panelHeader}>
             <div>
-              <h2 className={styles.panelTitle}>Layout</h2>
+              <h2 className={styles.panelTitle}>배치</h2>
               <p className={styles.panelText}>
-                Use sliders for width, spacing, and object position.
+                폭, 간격, 위치를 슬라이더로 조절합니다.
               </p>
             </div>
           </div>
@@ -334,7 +334,7 @@ export default function DesignEditor({ initialDesign }) {
               onClick={handleReset}
               type="button"
             >
-              Reset to defaults
+              기본값으로 되돌리기
             </button>
             <button
               className={styles.primaryButton}
@@ -342,7 +342,7 @@ export default function DesignEditor({ initialDesign }) {
               onClick={handleSave}
               type="button"
             >
-              {pending ? "Saving..." : "Save design"}
+              {pending ? "저장 중..." : "디자인 저장"}
             </button>
           </div>
         </div>
@@ -350,9 +350,9 @@ export default function DesignEditor({ initialDesign }) {
 
       <div className={styles.previewPanel}>
         <div className={styles.previewHeader}>
-          <h2 className={styles.previewTitle}>Live preview</h2>
+          <h2 className={styles.previewTitle}>실시간 미리보기</h2>
           <p className={styles.previewText}>
-            Changes on the left are reflected on the preview immediately.
+            왼쪽에서 바꾼 내용이 오른쪽 미리보기에 바로 반영됩니다.
           </p>
         </div>
 

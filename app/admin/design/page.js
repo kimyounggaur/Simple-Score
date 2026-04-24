@@ -25,23 +25,23 @@ export default async function AdminDesignPage() {
       <div className={styles.shell}>
         <section className={styles.header}>
           <div>
-            <div className={styles.eyebrow}>Landing Design Studio</div>
-            <h1 className={styles.title}>Real-time landing page editor</h1>
+            <div className={styles.eyebrow}>랜딩 디자인 스튜디오</div>
+            <h1 className={styles.title}>실시간 랜딩페이지 편집기</h1>
             <p className={styles.text}>
-              Edit copy, colors, card width, spacing, and offsets while the preview
-              updates immediately.
+              문구, 색상, 카드 폭, 간격, 위치 값을 조절하면 오른쪽 미리보기에
+              바로 반영됩니다.
             </p>
           </div>
 
           <div className={styles.headerActions}>
             <Link className={styles.secondary} href="/admin">
-              Admin Home
+              관리자 홈
             </Link>
             <Link className={styles.secondary} href="/auth">
-              Open Landing
+              랜딩 보기
             </Link>
             <Link className={styles.primary} href="/">
-              Open Editor
+              편집기 열기
             </Link>
           </div>
         </section>

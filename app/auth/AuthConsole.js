@@ -8,9 +8,9 @@ import LogoutButton from "../components/LogoutButton";
 import styles from "./auth.module.css";
 
 const MODE_LABELS = {
-  register: "Register",
-  member: "Member Login",
-  admin: "Admin Login",
+  register: "회원가입",
+  member: "회원 로그인",
+  admin: "관리자 로그인",
 };
 
 function getInitialState() {
@@ -147,16 +147,16 @@ export default function AuthConsole({
       const result = await response.json();
 
       if (!response.ok) {
-        setError(result.error || "Request could not be completed.");
+        setError(result.error || "요청을 처리하지 못했습니다.");
         return;
       }
 
-      setSuccess(result.message || "Done.");
+      setSuccess(result.message || "완료되었습니다.");
       router.push(result.user?.role === "admin" ? "/admin" : "/");
       router.refresh();
     } catch (networkError) {
       console.error(networkError);
-      setError("Unable to reach the server.");
+      setError("서버에 연결하지 못했습니다.");
     } finally {
       setPending(false);
     }
@@ -186,17 +186,17 @@ export default function AuthConsole({
             {currentUser ? (
               <>
                 <Link className={styles.ghostLink} href="/">
-                  Editor
+                  편집기
                 </Link>
                 {currentUser.role === "admin" ? (
                   <Link className={styles.ghostLink} href="/admin">
-                    Admin
+                    관리자
                   </Link>
                 ) : null}
               </>
             ) : adminSetupRequired ? (
               <Link className={styles.ghostLink} href="/setup/admin">
-                Admin Setup
+                관리자 초기 설정
               </Link>
             ) : null}
           </div>
@@ -236,8 +236,8 @@ export default function AuthConsole({
                 <div className={styles.statusPill}>
                   {currentUser
                     ? currentUser.role === "admin"
-                      ? "Admin Session"
-                      : "Member Session"
+                      ? "관리자 세션"
+                      : "회원 세션"
                     : design.panelStatusLabel}
                 </div>
               </div>
@@ -245,19 +245,19 @@ export default function AuthConsole({
               {currentUser ? (
                 <div className={styles.sessionBlock}>
                   <p className={styles.sessionLead}>
-                    Signed in as {currentUser.name}.
+                    현재 {currentUser.name} 계정으로 로그인 중입니다.
                   </p>
                   <p className={styles.sessionMeta}>
                     {currentUser.email} ·{" "}
-                    {currentUser.role === "admin" ? "Admin" : "Member"}
+                    {currentUser.role === "admin" ? "관리자" : "회원"}
                   </p>
                   <div className={styles.sessionActions}>
                     <Link className={styles.primaryAction} href="/">
-                      Open Editor
+                      편집기 열기
                     </Link>
                     {currentUser.role === "admin" ? (
                       <Link className={styles.secondaryAction} href="/admin">
-                        Admin Page
+                        관리자 페이지
                       </Link>
                     ) : null}
                     <LogoutButton className={styles.logoutAction} returnTo="/auth" />
@@ -288,24 +288,24 @@ export default function AuthConsole({
                     {mode === "register" ? (
                       <div className={styles.field}>
                         <label className={styles.label} htmlFor="register-name">
-                          Name
+                          이름
                         </label>
                         <input
                           className={styles.input}
                           id="register-name"
                           name="name"
                           onChange={handleFieldChange}
-                          placeholder="Jane Doe"
+                          placeholder="홍길동"
                           readOnly={previewMode}
                           required
-                          value={previewMode ? "Kim Simple" : registerForm.name}
+                          value={previewMode ? "김심플" : registerForm.name}
                         />
                       </div>
                     ) : null}
 
                     <div className={styles.field}>
                       <label className={styles.label} htmlFor="auth-email">
-                        Email
+                        이메일
                       </label>
                       <input
                         autoComplete="email"
@@ -323,7 +323,7 @@ export default function AuthConsole({
 
                     <div className={styles.field}>
                       <label className={styles.label} htmlFor="auth-password">
-                        Password
+                        비밀번호
                       </label>
                       <input
                         autoComplete={
@@ -333,7 +333,7 @@ export default function AuthConsole({
                         id="auth-password"
                         name="password"
                         onChange={handleFieldChange}
-                        placeholder="10+ chars with numbers and symbols"
+                        placeholder="영문, 숫자, 특수문자 포함 10자 이상"
                         readOnly={previewMode}
                         required
                         type="password"
@@ -350,7 +350,7 @@ export default function AuthConsole({
                         disabled={pending}
                         type="submit"
                       >
-                        {pending ? "Working..." : design.primaryActionLabel}
+                        {pending ? "처리 중..." : design.primaryActionLabel}
                       </button>
                       <Link className={styles.secondaryAction} href="/">
                         {design.secondaryActionLabel}
@@ -360,19 +360,19 @@ export default function AuthConsole({
 
                   <div className={styles.notes}>
                     <p className={styles.noteLine}>
-                      Passwords are stored with PBKDF2 and sessions use HttpOnly
-                      cookies.
+                      비밀번호는 PBKDF2 해시로 저장되며 세션은 HttpOnly 쿠키로
+                      관리됩니다.
                     </p>
                     <p className={styles.noteLine}>
                       {adminSetupRequired ? (
                         <>
-                          No admin account has been created yet.{" "}
+                          아직 관리자 계정이 없습니다.{" "}
                           <Link className={styles.inlineLink} href="/setup/admin">
-                            Create the first admin
+                            첫 관리자 만들기
                           </Link>
                         </>
                       ) : (
-                        "The first admin account is already set up."
+                        "첫 관리자 계정은 이미 설정되어 있습니다."
                       )}
                     </p>
                   </div>
