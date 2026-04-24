@@ -666,15 +666,44 @@ function getAudioCtx() {
   return appState.audioCtx;
 }
 
+function withTimeout(promise, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      reject(new Error(`INSTRUMENT_LOAD_TIMEOUT:${timeoutMs}`));
+    }, timeoutMs);
+
+    promise.then(
+      (value) => {
+        window.clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        window.clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
 async function loadInstrument(name) {
   if (!hasFullToolsAccess()) {
+    showLoading(false);
     return;
   }
 
   showLoading(true);
-  try { appState.instrument = await Soundfont.instrument(getAudioCtx(), name); }
-  catch (e) { console.error('Instrument load failed:', e); }
-  showLoading(false);
+  try {
+    appState.instrument = await withTimeout(
+      Soundfont.instrument(getAudioCtx(), name),
+      5000,
+    );
+  } catch (e) {
+    appState.instrument = null;
+    console.error('Instrument load failed:', e);
+    showAccessToast('악기 미리듣기 로딩에 실패했습니다. 입력 기능은 계속 사용할 수 있습니다.');
+  } finally {
+    showLoading(false);
+  }
 }
 
 function playNote(midiStr, dur) {
