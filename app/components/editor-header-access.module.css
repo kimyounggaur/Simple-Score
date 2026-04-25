@@ -248,6 +248,25 @@
   gap: 6px;
 }
 
+.recoveryLinks {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
+.textLink {
+  color: rgba(255, 255, 255, 0.74);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.textLink:hover {
+  color: #ffffff;
+}
+
 @media (max-width: 1200px) {
   .summaryText {
     display: none;

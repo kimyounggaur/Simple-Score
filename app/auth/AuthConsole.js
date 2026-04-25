@@ -360,6 +360,11 @@ export default function AuthConsole({
 
                   <div className={styles.notes}>
                     <p className={styles.noteLine}>
+                      <Link className={styles.inlineLink} href="/account/recovery">
+                        아이디 찾기 / 비밀번호 찾기
+                      </Link>
+                    </p>
+                    <p className={styles.noteLine}>
                       비밀번호는 PBKDF2 해시로 저장되며 세션은 HttpOnly 쿠키로
                       관리됩니다.
                     </p>

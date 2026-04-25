@@ -503,6 +503,15 @@ export default function EditorHeaderAccess({
                 </button>
               </form>
 
+              <div className={styles.recoveryLinks}>
+                <Link className={styles.textLink} href="/account/recovery">
+                  아이디 찾기
+                </Link>
+                <Link className={styles.textLink} href="/account/recovery">
+                  비밀번호 찾기
+                </Link>
+              </div>
+
               <div className={styles.panelNote}>
                 <strong>현재 사용 가능</strong>
                 <ul className={styles.featureList}>
