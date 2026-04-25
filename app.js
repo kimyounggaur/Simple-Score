@@ -2331,12 +2331,67 @@ function getStaveForY(y) {
 
 /** Return the staveCache entry for the measure at canvas coords (mx, my). */
 function getMeasureStaveForPoint(mx, my) {
-  const spacing = appState.layout.staffSpacing;
   for (const sc of appState.staveCache) {
-    if (my >= sc.y - 30 && my <= sc.y + spacing - 10 &&
-        mx >= sc.x       && mx <= sc.x + sc.width) return sc;
+    const staffTop = sc.stave.getYForLine(0);
+    const staffBottom = sc.stave.getYForLine(4);
+    const yPad = Math.max(18, appState.layout.staffLineSpacing * 1.6);
+
+    if (my >= staffTop - yPad && my <= staffBottom + yPad &&
+        mx >= sc.x && mx <= sc.x + sc.width) return sc;
   }
   return null;
+}
+
+function getMeasureCursorRange(measureIndex, voice = appState.currentVoice) {
+  const notes = voice === 0 ? appState.notes : appState.voice2Notes;
+  const measures = splitIntoMeasures(notes);
+  const measure = measures[measureIndex];
+
+  if (measure && measure.length > 0) {
+    return {
+      start: measure[0]._gi,
+      end: measure[measure.length - 1]._gi + 1,
+    };
+  }
+
+  if (measureIndex === measures.length) {
+    return {
+      start: notes.length,
+      end: notes.length,
+    };
+  }
+
+  return null;
+}
+
+function setCursorForMeasureClick(sc, mx, voice = appState.currentVoice) {
+  const range = getMeasureCursorRange(sc.measureIndex, voice);
+
+  if (!range) {
+    return false;
+  }
+
+  const measureBoxes = appState.renderedBBoxes
+    .filter((bb) =>
+      bb.voice === voice &&
+      bb.globalIndex >= range.start &&
+      bb.globalIndex < range.end
+    )
+    .sort((left, right) => left.x - right.x);
+
+  let nextCursor = range.end;
+
+  for (const bb of measureBoxes) {
+    const midpoint = bb.x + bb.w / 2;
+
+    if (mx < midpoint) {
+      nextCursor = bb.globalIndex;
+      break;
+    }
+  }
+
+  setActiveCursor(nextCursor);
+  return true;
 }
 
 let _dragRaf = 0;
@@ -2590,8 +2645,10 @@ function handleSingleClick(mx, my) {
   /* Don't place new notes while in chord or lyric mode */
   if (appState.chordMode || appState.lyricMode) return;
 
-  const sc = getStaveForY(my);
+  const sc = getMeasureStaveForPoint(mx, my);
   if (!sc) return;
+  if (!setCursorForMeasureClick(sc, mx)) return;
+
   const pitch = calculatePitchFromY(my, sc.stave);
   enterNoteAtCursor(pitch);
 }
@@ -2602,12 +2659,23 @@ function handleSingleClick(mx, my) {
    ═══════════════════════════════════════ */
 
 document.addEventListener('keydown', (e) => {
-  if (e.target.tagName === 'SELECT') return;
+  const target = e.target;
+  const tagName = target?.tagName;
+
+  if (
+    tagName === 'INPUT' ||
+    tagName === 'TEXTAREA' ||
+    tagName === 'SELECT' ||
+    target?.isContentEditable
+  ) {
+    return;
+  }
+
   /* Let chord / lyric inputs handle their own keys */
-  if (e.target.id === 'chord-input') return;
-  if (e.target.id === 'lyric-input') return;
+  if (target.id === 'chord-input') return;
+  if (target.id === 'lyric-input') return;
   /* Ignore keyboard events fired on voice buttons (e.g. Space/Enter activating them) */
-  if (e.target.classList.contains('voice-btn')) return;
+  if (target.classList.contains('voice-btn')) return;
 
   const key = e.key, kl = key.toLowerCase(), ctrl = e.ctrlKey || e.metaKey;
 
