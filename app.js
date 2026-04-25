@@ -201,6 +201,7 @@ const GHOST_COLOR      = '#4A90D9';
 const GHOST_OPACITY    = '0.38';
 const HIGHLIGHT_FILL   = 'rgba(100, 160, 255, 0.12)';
 const HIGHLIGHT_STROKE = 'rgba(100, 160, 255, 0.28)';
+const RIGHT_BARLINE_NOTE_PAD = 34;
 
 const TREBLE_PITCHES = [
   'a/5','g/5','f/5','e/5','d/5','c/5',
@@ -1001,7 +1002,7 @@ function renderScore() {
       ? buildVexNotesForVoice(mV2Notes, 1, appState.v2CursorIdx, appState.voice2Notes)
       : [];
 
-    const formatW = staveW - 40;
+    const formatW = Math.max(80, staveW - 40 - RIGHT_BARLINE_NOTE_PAD);
 
     if (vexV1.length > 0 && vexV2.length > 0) {
       const beats1 = mNotes.reduce((s, n) => s + noteBeatValue(n), 0);
