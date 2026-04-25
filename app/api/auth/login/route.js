@@ -3,6 +3,8 @@ import { cookies } from "next/headers";
 import { writeSessionCookie } from "../../../../lib/auth";
 import {
   findUserByEmail,
+  hasAdminUser,
+  promoteUserToAdmin,
   toPublicUser,
   touchUserLastLogin,
 } from "../../../../lib/db";
@@ -46,7 +48,7 @@ export async function POST(request) {
     );
   }
 
-  const user = await findUserByEmail(email);
+  let user = await findUserByEmail(email);
 
   if (!user || !verifyPassword(body.password, user.passwordHash, user.passwordSalt)) {
     return jsonResponse(
@@ -63,10 +65,14 @@ export async function POST(request) {
   }
 
   if (loginType === "admin" && user.role !== "admin") {
-    return jsonResponse(
-      { error: "관리자 권한이 없는 계정입니다." },
-      { status: 403 },
-    );
+    if (await hasAdminUser()) {
+      return jsonResponse(
+        { error: "관리자 권한이 없는 계정입니다." },
+        { status: 403 },
+      );
+    }
+
+    user = await promoteUserToAdmin(user.id);
   }
 
   const updatedUser = await touchUserLastLogin(user.id);
