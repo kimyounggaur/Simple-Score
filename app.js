@@ -692,6 +692,13 @@ async function loadInstrument(name) {
     return;
   }
 
+  if (!window.Soundfont?.instrument) {
+    appState.instrument = null;
+    showLoading(false);
+    console.warn('Soundfont player is unavailable; audio preview is disabled.');
+    return;
+  }
+
   showLoading(true);
   try {
     appState.instrument = await withTimeout(
@@ -717,7 +724,23 @@ function vexKeyToMidi(key) {
   return n.charAt(0).toUpperCase() + n.slice(1) + o;
 }
 
-function showLoading(v) { dom.overlay.classList.toggle('hidden', !v); }
+function showLoading(v) {
+  if (!dom.overlay) return;
+  dom.overlay.classList.toggle('hidden', !v);
+
+  if (appState.loadingFallbackTimer) {
+    window.clearTimeout(appState.loadingFallbackTimer);
+    appState.loadingFallbackTimer = null;
+  }
+
+  if (v) {
+    appState.loadingFallbackTimer = window.setTimeout(() => {
+      dom.overlay.classList.add('hidden');
+      appState.loadingFallbackTimer = null;
+      console.warn('Loading overlay was hidden after the safety timeout.');
+    }, 6500);
+  }
+}
 
 
 /* ═══════════════════════════════════════

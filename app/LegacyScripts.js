@@ -3,13 +3,30 @@
 import { useEffect } from "react";
 
 const LEGACY_SCRIPTS = [
-  "https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js",
-  "https://cdn.jsdelivr.net/npm/vexflow@4.2.2/build/cjs/vexflow.js",
-  "https://cdn.rawgit.com/danigb/soundfont-player/master/dist/soundfont-player.min.js",
-  "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js",
-  "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js",
-  "/app.js",
+  {
+    src: "https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js",
+    optional: true,
+  },
+  {
+    src: "https://cdn.jsdelivr.net/npm/vexflow@4.2.2/build/cjs/vexflow.js",
+    optional: false,
+  },
+  {
+    src: "https://cdn.jsdelivr.net/npm/soundfont-player@0.15.7/dist/soundfont-player.min.js",
+    optional: true,
+  },
+  {
+    src: "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js",
+    optional: true,
+  },
+  {
+    src: "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js",
+    optional: true,
+  },
+  { src: "/app.js", optional: false },
 ];
+
+const SCRIPT_LOAD_TIMEOUT_MS = 7000;
 
 function loadScript(src) {
   return new Promise((resolve, reject) => {
@@ -21,8 +38,25 @@ function loadScript(src) {
     }
 
     if (existing) {
-      existing.addEventListener("load", resolve, { once: true });
-      existing.addEventListener("error", reject, { once: true });
+      const timer = window.setTimeout(() => {
+        reject(new Error(`Timed out loading script: ${src}`));
+      }, SCRIPT_LOAD_TIMEOUT_MS);
+      existing.addEventListener(
+        "load",
+        () => {
+          window.clearTimeout(timer);
+          resolve();
+        },
+        { once: true },
+      );
+      existing.addEventListener(
+        "error",
+        () => {
+          window.clearTimeout(timer);
+          reject(new Error(`Failed to load script: ${src}`));
+        },
+        { once: true },
+      );
       return;
     }
 
@@ -30,11 +64,18 @@ function loadScript(src) {
     script.src = src;
     script.async = false;
     script.dataset.legacySrc = src;
+    const timer = window.setTimeout(() => {
+      reject(new Error(`Timed out loading script: ${src}`));
+    }, SCRIPT_LOAD_TIMEOUT_MS);
     script.onload = () => {
+      window.clearTimeout(timer);
       script.dataset.loaded = "true";
       resolve();
     };
-    script.onerror = () => reject(new Error(`Failed to load script: ${src}`));
+    script.onerror = () => {
+      window.clearTimeout(timer);
+      reject(new Error(`Failed to load script: ${src}`));
+    };
 
     document.body.appendChild(script);
   });
@@ -49,9 +90,14 @@ export default function LegacyScripts() {
 
     async function loadLegacyScripts() {
       try {
-        for (const src of LEGACY_SCRIPTS) {
+        for (const { src, optional } of LEGACY_SCRIPTS) {
           if (cancelled) return;
-          await loadScript(src);
+          try {
+            await loadScript(src);
+          } catch (error) {
+            console.error(error);
+            if (!optional) throw error;
+          }
         }
       } catch (error) {
         window.__lessonDesignerLegacyBootstrapped = false;

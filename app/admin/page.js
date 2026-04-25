@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import LogoutButton from "../components/LogoutButton";
@@ -15,10 +16,16 @@ function formatDate(value) {
     return "기록 없음";
   }
 
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "기록 없음";
+  }
+
   return new Intl.DateTimeFormat("ko-KR", {
     dateStyle: "medium",
     timeStyle: "short",
-  }).format(new Date(value));
+  }).format(date);
 }
 
 function getRoleLabel(role) {
@@ -27,6 +34,14 @@ function getRoleLabel(role) {
 
 function getStatusLabel(status) {
   return status === "active" ? "활성" : "비활성";
+}
+
+function formatText(value) {
+  return value ? value : "-";
+}
+
+function getAccessLevelLabel(user) {
+  return resolveAccessLevel(user) === "paid" ? "전체 기능 가능" : "회원 기능";
 }
 
 export default async function AdminPage() {
@@ -185,36 +200,112 @@ export default async function AdminPage() {
                     <th>결제 상태</th>
                     <th>가입일</th>
                     <th>최근 로그인</th>
+                    <th>회원정보</th>
                   </tr>
                 </thead>
                 <tbody>
                   {users.map((user) => (
-                    <tr key={user.id}>
-                      <td>{user.name}</td>
-                      <td>{user.email}</td>
-                      <td>
-                        <span
-                          className={`${styles.badge} ${
-                            user.role === "admin"
-                              ? styles.adminBadge
-                              : styles.memberBadge
-                          }`}
-                        >
-                          {getRoleLabel(user.role)}
-                        </span>
-                      </td>
-                      <td>
-                        <UserAccessTierControl user={user} />
-                      </td>
-                      <td>
-                        <span className={`${styles.badge} ${styles.activeBadge}`}>
-                          {getStatusLabel(user.status)}
-                        </span>
-                      </td>
-                      <td>{user.billingStatus || "-"}</td>
-                      <td>{formatDate(user.createdAt)}</td>
-                      <td>{formatDate(user.lastLoginAt)}</td>
-                    </tr>
+                    <Fragment key={user.id}>
+                      <tr>
+                        <td>{user.name}</td>
+                        <td>{user.email}</td>
+                        <td>
+                          <span
+                            className={`${styles.badge} ${
+                              user.role === "admin"
+                                ? styles.adminBadge
+                                : styles.memberBadge
+                            }`}
+                          >
+                            {getRoleLabel(user.role)}
+                          </span>
+                        </td>
+                        <td>
+                          <UserAccessTierControl user={user} />
+                        </td>
+                        <td>
+                          <span className={`${styles.badge} ${styles.activeBadge}`}>
+                            {getStatusLabel(user.status)}
+                          </span>
+                        </td>
+                        <td>{user.billingStatus || "-"}</td>
+                        <td>{formatDate(user.createdAt)}</td>
+                        <td>{formatDate(user.lastLoginAt)}</td>
+                        <td className={styles.detailCell}>
+                          <details className={styles.userDetails}>
+                            <summary className={styles.detailToggle}>상세 보기</summary>
+                            <dl className={styles.detailGrid}>
+                              <div className={styles.detailItem}>
+                                <dt>사용자 ID</dt>
+                                <dd className={styles.monoValue}>{user.id}</dd>
+                              </div>
+                              <div className={styles.detailItem}>
+                                <dt>이름</dt>
+                                <dd>{user.name}</dd>
+                              </div>
+                              <div className={styles.detailItem}>
+                                <dt>이메일</dt>
+                                <dd className={styles.monoValue}>{user.email}</dd>
+                              </div>
+                              <div className={styles.detailItem}>
+                                <dt>역할</dt>
+                                <dd>{getRoleLabel(user.role)}</dd>
+                              </div>
+                              <div className={styles.detailItem}>
+                                <dt>이용 권한</dt>
+                                <dd>{getAccessLevelLabel(user)}</dd>
+                              </div>
+                              <div className={styles.detailItem}>
+                                <dt>계정 상태</dt>
+                                <dd>{getStatusLabel(user.status)}</dd>
+                              </div>
+                              <div className={styles.detailItem}>
+                                <dt>결제 상태</dt>
+                                <dd>{formatText(user.billingStatus)}</dd>
+                              </div>
+                              <div className={styles.detailItem}>
+                                <dt>Stripe 고객 ID</dt>
+                                <dd className={styles.monoValue}>
+                                  {formatText(user.stripeCustomerId)}
+                                </dd>
+                              </div>
+                              <div className={styles.detailItem}>
+                                <dt>구독 ID</dt>
+                                <dd className={styles.monoValue}>
+                                  {formatText(user.stripeSubscriptionId)}
+                                </dd>
+                              </div>
+                              <div className={styles.detailItem}>
+                                <dt>Price ID</dt>
+                                <dd className={styles.monoValue}>
+                                  {formatText(user.stripePriceId)}
+                                </dd>
+                              </div>
+                              <div className={styles.detailItem}>
+                                <dt>결제 만료일</dt>
+                                <dd>{formatDate(user.billingCurrentPeriodEnd)}</dd>
+                              </div>
+                              <div className={styles.detailItem}>
+                                <dt>결제 갱신일</dt>
+                                <dd>{formatDate(user.billingUpdatedAt)}</dd>
+                              </div>
+                              <div className={styles.detailItem}>
+                                <dt>가입일</dt>
+                                <dd>{formatDate(user.createdAt)}</dd>
+                              </div>
+                              <div className={styles.detailItem}>
+                                <dt>수정일</dt>
+                                <dd>{formatDate(user.updatedAt)}</dd>
+                              </div>
+                              <div className={styles.detailItem}>
+                                <dt>최근 로그인</dt>
+                                <dd>{formatDate(user.lastLoginAt)}</dd>
+                              </div>
+                            </dl>
+                          </details>
+                        </td>
+                      </tr>
+                    </Fragment>
                   ))}
                 </tbody>
               </table>
