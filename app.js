@@ -81,6 +81,8 @@ const appState = {
   _mouseDownOnNote  : false,
 
   instrument : null,
+  instrumentName : null,
+  instrumentLoadPromise : null,
   audioCtx   : null,
 
   isPlaying    : false,
@@ -712,6 +714,14 @@ function getAudioCtx() {
   return appState.audioCtx;
 }
 
+async function resumeAudioContext() {
+  const ctx = getAudioCtx();
+  if (ctx.state === 'suspended') {
+    await ctx.resume();
+  }
+  return ctx;
+}
+
 function withTimeout(promise, timeoutMs) {
   return new Promise((resolve, reject) => {
     const timer = window.setTimeout(() => {
@@ -734,12 +744,22 @@ function withTimeout(promise, timeoutMs) {
 async function loadInstrument(name, { showOverlay = false, notifyOnError = false } = {}) {
   if (!hasFullToolsAccess()) {
     appState.instrument = null;
+    appState.instrumentName = null;
     showLoading(false);
     return;
   }
 
+  if (appState.instrument && appState.instrumentName === name) {
+    return appState.instrument;
+  }
+
+  if (appState.instrumentLoadPromise && appState.instrumentName === name) {
+    return appState.instrumentLoadPromise;
+  }
+
   if (!window.Soundfont?.instrument) {
     appState.instrument = null;
+    appState.instrumentName = null;
     showLoading(false);
     console.warn('Soundfont player is unavailable; audio preview is disabled.');
     return;
@@ -750,25 +770,92 @@ async function loadInstrument(name, { showOverlay = false, notifyOnError = false
   } else {
     showLoading(false);
   }
+
+  appState.instrumentName = name;
+  appState.instrumentLoadPromise = withTimeout(
+    Soundfont.instrument(getAudioCtx(), name),
+    5000,
+  );
+
   try {
-    appState.instrument = await withTimeout(
-      Soundfont.instrument(getAudioCtx(), name),
-      5000,
-    );
+    appState.instrument = await appState.instrumentLoadPromise;
+    return appState.instrument;
   } catch (e) {
     appState.instrument = null;
+    appState.instrumentName = null;
     console.error('Instrument load failed:', e);
     if (notifyOnError) {
-      showAccessToast('악기 미리듣기 로딩에 실패했습니다. 입력 기능은 계속 사용할 수 있습니다.');
+      showAccessToast('샘플 악기 로딩에 실패해 기본 내장 사운드로 재생합니다.');
     }
   } finally {
+    appState.instrumentLoadPromise = null;
     showLoading(false);
   }
 }
 
-function playNote(midiStr, dur) {
-  if (!appState.instrument) return;
-  try { appState.instrument.play(midiStr, 0, { duration: dur || 0.5 }); } catch(_){}
+function midiToFrequency(midiStr) {
+  const match = String(midiStr).match(/^([A-Ga-g])([#b]?)(-?\d+)$/);
+  if (!match) return 440;
+  const semis = { C:0, D:2, E:4, F:5, G:7, A:9, B:11 };
+  const letter = match[1].toUpperCase();
+  const accidental = match[2];
+  const octave = Number(match[3]);
+  let semi = semis[letter] ?? 9;
+  if (accidental === '#') semi += 1;
+  if (accidental === 'b') semi -= 1;
+  const midi = (octave + 1) * 12 + semi;
+  return 440 * Math.pow(2, (midi - 69) / 12);
+}
+
+function getFallbackWaveform() {
+  const name = dom.instrument?.value || '';
+  if (name.includes('flute')) return 'sine';
+  if (name.includes('trumpet')) return 'square';
+  if (name.includes('violin') || name.includes('cello')) return 'sawtooth';
+  return 'triangle';
+}
+
+async function playFallbackNote(midiStr, dur) {
+  const ctx = await resumeAudioContext();
+  const duration = Math.max(0.08, dur || 0.5);
+  const now = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  const filter = ctx.createBiquadFilter();
+
+  osc.type = getFallbackWaveform();
+  osc.frequency.setValueAtTime(midiToFrequency(midiStr), now);
+  filter.type = 'lowpass';
+  filter.frequency.setValueAtTime(2600, now);
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(0.2, now + 0.015);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+  osc.connect(filter);
+  filter.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(now);
+  osc.stop(now + duration + 0.03);
+}
+
+async function playNote(midiStr, dur) {
+  if (!hasFullToolsAccess()) return;
+  try {
+    await resumeAudioContext();
+    const selectedInstrument = dom.instrument?.value || 'acoustic_grand_piano';
+    if (appState.instrument && appState.instrumentName === selectedInstrument) {
+      appState.instrument.play(midiStr, 0, { duration: dur || 0.5 });
+      return;
+    }
+
+    loadInstrument(selectedInstrument).catch((error) => {
+      console.warn('Background instrument load failed:', error);
+    });
+  } catch (error) {
+    console.warn('Falling back to built-in synth sound:', error);
+  }
+
+  await playFallbackNote(midiStr, dur);
 }
 
 function vexKeyToMidi(key) {
@@ -873,8 +960,9 @@ function stopMetronome() {
   dom.metronomeBtn.classList.remove('active');
 }
 
-function startMetronome() {
+async function startMetronome() {
   if (!requireFullToolsAccess()) return;
+  await resumeAudioContext();
   stopMetronome();
   appState.metronomeIsPlaying = true;
   appState.metronomeBeat = 0;
@@ -3354,7 +3442,7 @@ function getMeasureIndexFromXY(x, y) {
   return -1;
 }
 
-function playMeasure(measureIndex) {
+async function playMeasure(measureIndex) {
   if (!requireFullToolsAccess()) return;
   stopPlayback();
   const measures   = splitIntoMeasures(appState.notes);
@@ -3362,6 +3450,8 @@ function playMeasure(measureIndex) {
   const mNotes  = measures[measureIndex]   || [];
   const mV2Notes = v2measures[measureIndex] || [];
   if (!mNotes.length && !mV2Notes.length) return;
+  await resumeAudioContext();
+  loadInstrument(dom.instrument.value);
   highlightMeasure(measureIndex, true);
   const beatDur = 60 / appState.bpm;
   let time1 = 0, time2 = 0;
@@ -3405,9 +3495,11 @@ function stopPlayback() {
   const hl = dom.canvas.querySelector('#measure-highlight'); if (hl) hl.remove();
 }
 
-function startPlayback() {
+async function startPlayback() {
   if (!requireFullToolsAccess()) return;
   if (!appState.notes.length && !appState.voice2Notes.length) return;
+  await resumeAudioContext();
+  loadInstrument(dom.instrument.value);
   stopPlayback(); appState.isPlaying = true;
   dom.btnPlay.classList.add('playing');
   hideGhost();                                     // ★ hide ghost during playback
