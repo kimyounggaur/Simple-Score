@@ -69,6 +69,13 @@ export async function POST(request) {
       role: "member",
       status: "active",
       accessTier: "member",
+      profile: {
+        phone: body.phone,
+        organization: body.organization,
+        usagePurpose: body.usagePurpose,
+        referralSource: body.referralSource,
+        marketingConsent: body.marketingConsent === true,
+      },
     });
     const cookieStore = await cookies();
 

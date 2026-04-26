@@ -40,6 +40,30 @@ function formatText(value) {
   return value ? value : "-";
 }
 
+function getUsagePurposeLabel(value) {
+  const labels = {
+    lesson: "레슨/교육",
+    church: "교회/예배",
+    ensemble: "합주/공연",
+    personal: "개인 연습",
+    other: "기타",
+  };
+
+  return labels[value] || formatText(value);
+}
+
+function getReferralSourceLabel(value) {
+  const labels = {
+    search: "검색",
+    social: "SNS",
+    recommendation: "지인 추천",
+    class: "수업/강의",
+    other: "기타",
+  };
+
+  return labels[value] || formatText(value);
+}
+
 function getAccessLevelLabel(user) {
   return resolveAccessLevel(user) === "paid" ? "전체 기능 가능" : "회원 기능";
 }
@@ -246,6 +270,34 @@ export default async function AdminPage() {
                               <div className={styles.detailItem}>
                                 <dt>이메일</dt>
                                 <dd className={styles.monoValue}>{user.email}</dd>
+                              </div>
+                              <div className={styles.detailItem}>
+                                <dt>연락처</dt>
+                                <dd>{formatText(user.profile?.phone)}</dd>
+                              </div>
+                              <div className={styles.detailItem}>
+                                <dt>소속</dt>
+                                <dd>{formatText(user.profile?.organization)}</dd>
+                              </div>
+                              <div className={styles.detailItem}>
+                                <dt>사용 목적</dt>
+                                <dd>
+                                  {getUsagePurposeLabel(user.profile?.usagePurpose)}
+                                </dd>
+                              </div>
+                              <div className={styles.detailItem}>
+                                <dt>가입 경로</dt>
+                                <dd>
+                                  {getReferralSourceLabel(
+                                    user.profile?.referralSource,
+                                  )}
+                                </dd>
+                              </div>
+                              <div className={styles.detailItem}>
+                                <dt>마케팅 수신</dt>
+                                <dd>
+                                  {user.profile?.marketingConsent ? "동의" : "미동의"}
+                                </dd>
                               </div>
                               <div className={styles.detailItem}>
                                 <dt>역할</dt>

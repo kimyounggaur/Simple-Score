@@ -18,6 +18,11 @@ function getInitialState() {
     name: "",
     email: "",
     password: "",
+    phone: "",
+    organization: "",
+    usagePurpose: "",
+    referralSource: "",
+    marketingConsent: false,
   };
 }
 
@@ -107,10 +112,10 @@ export default function AuthConsole({
       return;
     }
 
-    const { name, value } = event.target;
+    const { checked, name, type, value } = event.target;
     updateForm({
       ...activeForm,
-      [name]: value,
+      [name]: type === "checkbox" ? checked : value,
     });
   }
 
@@ -286,21 +291,126 @@ export default function AuthConsole({
 
                   <form className={styles.form} onSubmit={handleSubmit}>
                     {mode === "register" ? (
-                      <div className={styles.field}>
-                        <label className={styles.label} htmlFor="register-name">
-                          이름
+                      <>
+                        <div className={styles.field}>
+                          <label className={styles.label} htmlFor="register-name">
+                            이름
+                          </label>
+                          <input
+                            className={styles.input}
+                            id="register-name"
+                            name="name"
+                            onChange={handleFieldChange}
+                            placeholder="홍길동"
+                            readOnly={previewMode}
+                            required
+                            value={previewMode ? "김심플" : registerForm.name}
+                          />
+                        </div>
+
+                        <div className={styles.profileGrid}>
+                          <div className={styles.field}>
+                            <label className={styles.label} htmlFor="register-phone">
+                              연락처
+                            </label>
+                            <input
+                              autoComplete="tel"
+                              className={styles.input}
+                              id="register-phone"
+                              name="phone"
+                              onChange={handleFieldChange}
+                              placeholder="010-0000-0000"
+                              readOnly={previewMode}
+                              type="tel"
+                              value={previewMode ? "010-1234-5678" : registerForm.phone}
+                            />
+                          </div>
+
+                          <div className={styles.field}>
+                            <label
+                              className={styles.label}
+                              htmlFor="register-organization"
+                            >
+                              소속
+                            </label>
+                            <input
+                              autoComplete="organization"
+                              className={styles.input}
+                              id="register-organization"
+                              name="organization"
+                              onChange={handleFieldChange}
+                              placeholder="학교, 학원, 교회, 팀"
+                              readOnly={previewMode}
+                              value={
+                                previewMode ? "Simple Music Studio" : registerForm.organization
+                              }
+                            />
+                          </div>
+                        </div>
+
+                        <div className={styles.profileGrid}>
+                          <div className={styles.field}>
+                            <label
+                              className={styles.label}
+                              htmlFor="register-usage-purpose"
+                            >
+                              사용 목적
+                            </label>
+                            <select
+                              className={styles.select}
+                              id="register-usage-purpose"
+                              name="usagePurpose"
+                              onChange={handleFieldChange}
+                              value={
+                                previewMode ? "lesson" : registerForm.usagePurpose
+                              }
+                            >
+                              <option value="">선택 안 함</option>
+                              <option value="lesson">레슨/교육</option>
+                              <option value="church">교회/예배</option>
+                              <option value="ensemble">합주/공연</option>
+                              <option value="personal">개인 연습</option>
+                              <option value="other">기타</option>
+                            </select>
+                          </div>
+
+                          <div className={styles.field}>
+                            <label
+                              className={styles.label}
+                              htmlFor="register-referral-source"
+                            >
+                              가입 경로
+                            </label>
+                            <select
+                              className={styles.select}
+                              id="register-referral-source"
+                              name="referralSource"
+                              onChange={handleFieldChange}
+                              value={previewMode ? "search" : registerForm.referralSource}
+                            >
+                              <option value="">선택 안 함</option>
+                              <option value="search">검색</option>
+                              <option value="social">SNS</option>
+                              <option value="recommendation">지인 추천</option>
+                              <option value="class">수업/강의</option>
+                              <option value="other">기타</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <label className={styles.checkboxLine}>
+                          <input
+                            checked={
+                              previewMode ? true : registerForm.marketingConsent
+                            }
+                            name="marketingConsent"
+                            onChange={handleFieldChange}
+                            readOnly={previewMode}
+                            type="checkbox"
+                          />
+                          <span>업데이트와 교육 자료 안내를 이메일로 받겠습니다.</span>
                         </label>
-                        <input
-                          className={styles.input}
-                          id="register-name"
-                          name="name"
-                          onChange={handleFieldChange}
-                          placeholder="홍길동"
-                          readOnly={previewMode}
-                          required
-                          value={previewMode ? "김심플" : registerForm.name}
-                        />
-                      </div>
+                      </>
                     ) : null}
 
                     <div className={styles.field}>
