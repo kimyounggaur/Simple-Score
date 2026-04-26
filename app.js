@@ -86,6 +86,11 @@ const appState = {
   isPlaying    : false,
   playTimeouts : [],
 
+  metronomeSound    : 'click',
+  metronomeTimer    : null,
+  metronomeBeat     : 0,
+  metronomeIsPlaying: false,
+
   renderedBBoxes : [],
   staveCache     : [],
 
@@ -395,6 +400,10 @@ const dom = {
   btnStop     : document.getElementById('btn-stop'),
   bpmSlider   : document.getElementById('bpm-slider'),
   bpmDisplay  : document.getElementById('bpm-display'),
+  metronomeBtn      : document.getElementById('btn-metronome'),
+  metronomeBpmSlider: document.getElementById('metronome-bpm-slider'),
+  metronomeBpmInput : document.getElementById('metronome-bpm-input'),
+  metronomeSound    : document.getElementById('metronome-sound-select'),
   noteButtons : document.querySelectorAll('.note-buttons .tool-btn'),
   btnRest     : document.getElementById('btn-rest'),
   btnDot      : document.getElementById('btn-dot'),
@@ -623,6 +632,9 @@ function applyAccessLocks() {
       dom.timeSig,
       dom.instrument,
       dom.bpmSlider,
+      dom.metronomeBpmSlider,
+      dom.metronomeBpmInput,
+      dom.metronomeSound,
       dom.slMPL,
       dom.slScale,
       dom.slSpace,
@@ -642,6 +654,7 @@ function applyAccessLocks() {
     [
       dom.btnPlay,
       dom.btnStop,
+      dom.metronomeBtn,
       dom.btnPNG,
       dom.lyricItalicToggle,
       document.getElementById('btn-gap-mode'),
@@ -764,6 +777,97 @@ function showLoading(v) {
       console.warn('Loading overlay was hidden after the safety timeout.');
     }, 6500);
   }
+}
+
+function clampBpm(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return appState.bpm;
+  return Math.max(60, Math.min(200, Math.round(parsed)));
+}
+
+function syncBpmControls(value) {
+  const bpm = clampBpm(value);
+  appState.bpm = bpm;
+  dom.bpmSlider.value = bpm;
+  dom.bpmDisplay.textContent = bpm;
+  dom.metronomeBpmSlider.value = bpm;
+  dom.metronomeBpmInput.value = bpm;
+}
+
+function playMetronomeSound(accented) {
+  const ctx = getAudioCtx();
+  const now = ctx.currentTime;
+  const gain = ctx.createGain();
+  gain.connect(ctx.destination);
+
+  if (appState.metronomeSound === 'wood') {
+    const osc = ctx.createOscillator();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(accented ? 1040 : 740, now);
+    gain.gain.setValueAtTime(accented ? 0.34 : 0.24, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.075);
+    osc.connect(gain);
+    osc.start(now);
+    osc.stop(now + 0.08);
+    return;
+  }
+
+  if (appState.metronomeSound === 'bell') {
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(accented ? 1760 : 1175, now);
+    gain.gain.setValueAtTime(accented ? 0.24 : 0.16, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+    osc.connect(gain);
+    osc.start(now);
+    osc.stop(now + 0.19);
+    return;
+  }
+
+  const osc = ctx.createOscillator();
+  osc.type = 'square';
+  osc.frequency.setValueAtTime(accented ? 1320 : 880, now);
+  gain.gain.setValueAtTime(accented ? 0.22 : 0.15, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.045);
+  osc.connect(gain);
+  osc.start(now);
+  osc.stop(now + 0.05);
+}
+
+function scheduleMetronomeTick() {
+  if (!appState.metronomeIsPlaying) return;
+
+  const beatNumber = appState.metronomeBeat % getBeatsPerMeasure();
+  playMetronomeSound(beatNumber === 0);
+  appState.metronomeBeat += 1;
+
+  appState.metronomeTimer = window.setTimeout(
+    scheduleMetronomeTick,
+    (60 / appState.bpm) * 1000,
+  );
+}
+
+function stopMetronome() {
+  appState.metronomeIsPlaying = false;
+  if (appState.metronomeTimer) {
+    window.clearTimeout(appState.metronomeTimer);
+    appState.metronomeTimer = null;
+  }
+  appState.metronomeBeat = 0;
+  dom.metronomeBtn.classList.remove('active');
+}
+
+function startMetronome() {
+  if (!requireFullToolsAccess()) return;
+  stopMetronome();
+  appState.metronomeIsPlaying = true;
+  appState.metronomeBeat = 0;
+  dom.metronomeBtn.classList.add('active');
+  scheduleMetronomeTick();
+}
+
+function toggleMetronome() {
+  appState.metronomeIsPlaying ? stopMetronome() : startMetronome();
 }
 
 
@@ -3889,13 +3993,42 @@ dom.instrument.addEventListener('change', () => {
 });
 dom.bpmSlider.addEventListener('input', () => {
   if (!requireFullToolsAccess()) {
-    dom.bpmSlider.value = appState.bpm;
-    dom.bpmDisplay.textContent = appState.bpm;
+    syncBpmControls(appState.bpm);
     return;
   }
-  appState.bpm = Number(dom.bpmSlider.value);
-  dom.bpmDisplay.textContent = appState.bpm;
+  syncBpmControls(dom.bpmSlider.value);
 });
+dom.metronomeBpmSlider.addEventListener('input', () => {
+  if (!requireFullToolsAccess()) {
+    syncBpmControls(appState.bpm);
+    return;
+  }
+  syncBpmControls(dom.metronomeBpmSlider.value);
+});
+dom.metronomeBpmInput.addEventListener('input', () => {
+  if (!requireFullToolsAccess()) {
+    syncBpmControls(appState.bpm);
+    return;
+  }
+  if (dom.metronomeBpmInput.value !== '') {
+    syncBpmControls(dom.metronomeBpmInput.value);
+  }
+});
+dom.metronomeBpmInput.addEventListener('change', () => {
+  if (!requireFullToolsAccess()) {
+    syncBpmControls(appState.bpm);
+    return;
+  }
+  syncBpmControls(dom.metronomeBpmInput.value || appState.bpm);
+});
+dom.metronomeSound.addEventListener('change', () => {
+  if (!requireFullToolsAccess()) {
+    dom.metronomeSound.value = appState.metronomeSound;
+    return;
+  }
+  appState.metronomeSound = dom.metronomeSound.value;
+});
+dom.metronomeBtn.addEventListener('click', toggleMetronome);
 dom.btnPlay.addEventListener('click', startPlayback);
 dom.btnStop.addEventListener('click', stopPlayback);
 dom.btnUndo.addEventListener('click', () => {

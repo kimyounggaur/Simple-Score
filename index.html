@@ -637,6 +637,20 @@
       <span id="bpm-display" class="bpm-value">120</span>
     </div>
 
+    <div class="metronome-control">
+      <button id="btn-metronome" class="metronome-btn" title="Metronome">
+        <span class="metronome-dot"></span>
+        <span>Metronome</span>
+      </button>
+      <input type="range" id="metronome-bpm-slider" min="60" max="200" value="120" aria-label="Metronome BPM" />
+      <input type="number" id="metronome-bpm-input" min="60" max="200" value="120" aria-label="Metronome BPM number" />
+      <select id="metronome-sound-select" class="metronome-select" aria-label="Metronome sound">
+        <option value="click">Click</option>
+        <option value="wood">Wood</option>
+        <option value="bell">Bell</option>
+      </select>
+    </div>
+
     <div class="export-controls">
       <button id="btn-export-png" class="export-btn" title="Save as PNG">
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 13v3a1 1 0 001 1h12a1 1 0 001-1v-3"/><polyline points="6 9 10 13 14 9"/><line x1="10" y1="13" x2="10" y2="3"/></svg>
