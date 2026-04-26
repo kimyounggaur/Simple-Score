@@ -46,6 +46,7 @@ const appState = {
   bpm           : 120,
 
   notes : [],
+  slurGroups : [],
 
   cursorIndex : 0,
 
@@ -402,6 +403,7 @@ const dom = {
   btnStemUp   : document.getElementById('btn-stem-up'),
   btnStemDown : document.getElementById('btn-stem-down'),
   btnStemAuto : document.getElementById('btn-stem-auto'),
+  btnSlurRange: document.getElementById('btn-slur-range'),
   btnTuplet   : document.getElementById('btn-tuplet'),
   tupletCount : document.getElementById('tuplet-count'),
   tupletOccupied : document.getElementById('tuplet-occupied'),
@@ -806,6 +808,7 @@ function getYForPitchIndex(pitchIdx, stave) {
 function activeNotes()      { return appState.currentVoice === 0 ? appState.notes : appState.voice2Notes; }
 function activeCursor()     { return appState.currentVoice === 0 ? appState.cursorIndex : appState.v2CursorIdx; }
 function setActiveCursor(i) { if (appState.currentVoice === 0) appState.cursorIndex = i; else appState.v2CursorIdx = i; }
+function notesForVoice(voice) { return voice === 0 ? appState.notes : appState.voice2Notes; }
 
 function isNoteSelected(voice, index) {
   return appState.selectedNotes.some((note) => note.voice === voice && note.index === index);
@@ -1831,6 +1834,51 @@ function drawAllTiesAndSlurs(svg) {
         _drawArcPartial(svg, x1, ay1, sc1.x + sc1.width + 6, arcDir, color, sw);
       }
     });
+  });
+
+  drawRangeSlurGroups(svg);
+}
+
+function drawRangeSlurGroups(svg) {
+  const sls = appState.layout.staffLineSpacing;
+
+  appState.slurGroups.forEach((group) => {
+    const voice = Number(group.voice);
+    const startIndex = Number(group.start);
+    const endIndex = Number(group.end);
+    if (!Number.isInteger(voice) || !Number.isInteger(startIndex) || !Number.isInteger(endIndex)) return;
+    if (startIndex >= endIndex) return;
+
+    const notes = notesForVoice(voice);
+    const startNote = notes[startIndex];
+    const endNote = notes[endIndex];
+    if (!startNote || !endNote || startNote.isRest || endNote.isRest) return;
+
+    const bb1 = appState.renderedBBoxes.find((bb) => bb.voice === voice && bb.globalIndex === startIndex);
+    const bb2 = appState.renderedBBoxes.find((bb) => bb.voice === voice && bb.globalIndex === endIndex);
+    if (!bb1 || !bb2) return;
+
+    const color = voice === 1 ? V2_COLOR : '#111';
+    const arcDir = voice === 1 ? -1 : 1;
+    const yOff = Math.max(7, sls * 0.58);
+    const sw = '2';
+    const ay1 = arcDir === 1 ? bb1.y + bb1.h + yOff : bb1.y - yOff;
+    const ay2 = arcDir === 1 ? bb2.y + bb2.h + yOff : bb2.y - yOff;
+    const x1 = bb1.x + bb1.w * 0.45;
+    const x2 = bb2.x + bb2.w * 0.55;
+    const sc1 = _scForBB(bb1);
+    const sc2 = _scForBB(bb2);
+    const sameRow = sc1 && sc2 && sc1.row === sc2.row;
+
+    if (sameRow) {
+      _drawArc(svg, x1, ay1, x2, ay2, arcDir, color, sw);
+    } else {
+      if (sc1) _drawArcPartial(svg, x1, ay1, sc1.x + sc1.width + 6, arcDir, color, sw);
+      if (sc2) {
+        const leftX = sc2.x + (sc2.col === 0 ? 82 : 8);
+        _drawArcPartial(svg, leftX, ay2, x2, arcDir, color, sw);
+      }
+    }
   });
 }
 
@@ -3391,6 +3439,58 @@ function setStemDirectionForCursor(direction) {
   renderScore();
 }
 
+function getSelectedRangeByVoice() {
+  const ranges = new Map();
+
+  appState.selectedNotes.forEach((selection) => {
+    const voice = Number(selection.voice);
+    const index = Number(selection.index);
+    const notes = notesForVoice(voice);
+    const note = notes[index];
+    if (!note || note.isRest) return;
+
+    if (!ranges.has(voice)) ranges.set(voice, []);
+    ranges.get(voice).push(index);
+  });
+
+  return Array.from(ranges.entries()).map(([voice, indexes]) => {
+    const sorted = [...new Set(indexes)].sort((left, right) => left - right);
+    return {
+      voice,
+      indexes: sorted,
+      start: sorted[0],
+      end: sorted[sorted.length - 1],
+    };
+  }).filter((range) => range.indexes.length >= 2);
+}
+
+function toggleSlurForSelectedRange() {
+  const ranges = getSelectedRangeByVoice();
+  if (!ranges.length) return false;
+
+  ranges.forEach((range) => {
+    const existingIndex = appState.slurGroups.findIndex((group) =>
+      Number(group.voice) === range.voice &&
+      Number(group.start) === range.start &&
+      Number(group.end) === range.end
+    );
+
+    if (existingIndex >= 0) {
+      appState.slurGroups.splice(existingIndex, 1);
+    } else {
+      appState.slurGroups.push({
+        id: `slur-${Date.now()}-${range.voice}-${range.start}-${range.end}`,
+        voice: range.voice,
+        start: range.start,
+        end: range.end,
+      });
+    }
+  });
+
+  renderScore();
+  return true;
+}
+
 function toggleTie() {
   if (!requireFullToolsAccess()) return;
   const notes = activeNotes();
@@ -3403,6 +3503,8 @@ function toggleTie() {
 
 function toggleSlur() {
   if (!requireFullToolsAccess()) return;
+  if (toggleSlurForSelectedRange()) return;
+
   const notes = activeNotes();
   const ci    = activeCursor();
   if (ci >= notes.length) return;
@@ -3419,6 +3521,7 @@ dom.btnBeamConnect?.addEventListener('click', forceBeamConnect);
 dom.btnStemUp?.addEventListener('click', () => setStemDirectionForCursor('up'));
 dom.btnStemDown?.addEventListener('click', () => setStemDirectionForCursor('down'));
 dom.btnStemAuto?.addEventListener('click', () => setStemDirectionForCursor('auto'));
+dom.btnSlurRange?.addEventListener('click', toggleSlur);
 dom.btnTuplet?.addEventListener('click', toggleTupletMode);
 dom.tupletCount?.addEventListener('change', () => setTupletCount(dom.tupletCount.value));
 dom.tupletOccupied?.addEventListener('change', () => setTupletOccupied(dom.tupletOccupied.value));
@@ -3810,6 +3913,8 @@ dom.btnClear.addEventListener('click', () => {
   appState.notes = []; appState.voice2Notes = [];
   appState.cursorIndex = 0; appState.v2CursorIdx = 0;
   resetTupletDraft();
+  appState.slurGroups = [];
+  appState.selectedNotes = [];
   appState.repeatMarkers  = {};
   appState.songFormLabels = {};
   if (appState.chordMode)  { appState.chordMode  = false; dom.btnChord.classList.remove('active'); hideChordInput(); }
@@ -3927,7 +4032,7 @@ function updateStatusBar() {
 
   /* lyric / repeat / articulation / dynamics status */
   if (appState.selectedNotes.length) {
-    dom.statusLyric.textContent = `Selected ${appState.selectedNotes.length} notes`;
+    dom.statusLyric.textContent = `Selected ${appState.selectedNotes.length} notes · S: Slur`;
   } else if (appState.lyricMode) {
     dom.statusLyric.textContent = '✏️ Lyric Mode';
   } else if (appState.dynamicsMode && appState.dynamicsSelected) {
