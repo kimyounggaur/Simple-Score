@@ -731,8 +731,9 @@ function withTimeout(promise, timeoutMs) {
   });
 }
 
-async function loadInstrument(name) {
+async function loadInstrument(name, { showOverlay = false, notifyOnError = false } = {}) {
   if (!hasFullToolsAccess()) {
+    appState.instrument = null;
     showLoading(false);
     return;
   }
@@ -744,7 +745,11 @@ async function loadInstrument(name) {
     return;
   }
 
-  showLoading(true);
+  if (showOverlay) {
+    showLoading(true);
+  } else {
+    showLoading(false);
+  }
   try {
     appState.instrument = await withTimeout(
       Soundfont.instrument(getAudioCtx(), name),
@@ -753,7 +758,9 @@ async function loadInstrument(name) {
   } catch (e) {
     appState.instrument = null;
     console.error('Instrument load failed:', e);
-    showAccessToast('악기 미리듣기 로딩에 실패했습니다. 입력 기능은 계속 사용할 수 있습니다.');
+    if (notifyOnError) {
+      showAccessToast('악기 미리듣기 로딩에 실패했습니다. 입력 기능은 계속 사용할 수 있습니다.');
+    }
   } finally {
     showLoading(false);
   }
@@ -4098,7 +4105,7 @@ dom.instrument.addEventListener('change', () => {
     dom.instrument.value = 'acoustic_grand_piano';
     return;
   }
-  loadInstrument(dom.instrument.value);
+  loadInstrument(dom.instrument.value, { showOverlay: true, notifyOnError: true });
 });
 dom.bpmSlider.addEventListener('input', () => {
   if (!requireFullToolsAccess()) {
@@ -4582,9 +4589,10 @@ document.getElementById('shortcuts-modal').addEventListener('click', (e) => {
    §17  INIT
    ═══════════════════════════════════════ */
 
-(async function init() {
+(function init() {
   updateTupletControls();
   renderScore();
   updateStatusBar();
-  await loadInstrument(dom.instrument.value);
+  showLoading(false);
+  loadInstrument(dom.instrument.value);
 })();
