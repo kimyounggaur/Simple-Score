@@ -779,6 +779,7 @@ function vexKeyToMidi(key) {
 function showLoading(v) {
   if (!dom.overlay) return;
   dom.overlay.classList.toggle('hidden', !v);
+  dom.overlay.setAttribute('aria-hidden', v ? 'false' : 'true');
 
   if (appState.loadingFallbackTimer) {
     window.clearTimeout(appState.loadingFallbackTimer);
@@ -4105,7 +4106,7 @@ dom.instrument.addEventListener('change', () => {
     dom.instrument.value = 'acoustic_grand_piano';
     return;
   }
-  loadInstrument(dom.instrument.value, { showOverlay: true, notifyOnError: true });
+  loadInstrument(dom.instrument.value, { notifyOnError: true });
 });
 dom.bpmSlider.addEventListener('input', () => {
   if (!requireFullToolsAccess()) {
