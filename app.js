@@ -24,7 +24,7 @@
    ═══════════════════════════════════════════════════════════ */
 
 const VF = Vex.Flow;
-const { Renderer, Stave, StaveNote, Voice, Formatter, Dot, Accidental, Tuplet } = VF;
+const { Renderer, Stave, StaveNote, Voice, Formatter, Dot, Accidental, Tuplet, Beam } = VF;
 
 /* ═══════════════════════════════════════
    §1  STATE & CONSTANTS
@@ -391,6 +391,8 @@ const dom = {
   noteButtons : document.querySelectorAll('.note-buttons .tool-btn'),
   btnRest     : document.getElementById('btn-rest'),
   btnDot      : document.getElementById('btn-dot'),
+  btnBeamBreak: document.getElementById('btn-beam-break'),
+  btnBeamConnect: document.getElementById('btn-beam-connect'),
   btnTuplet   : document.getElementById('btn-tuplet'),
   tupletCount : document.getElementById('tuplet-count'),
   tupletOccupied : document.getElementById('tuplet-occupied'),
@@ -1025,6 +1027,54 @@ function drawTuplets(tuplets, context) {
   });
 }
 
+function isBeamableNote(note) {
+  return note && !note.isRest && (note.duration === '8' || note.duration === '16');
+}
+
+function buildBeamsForMeasure(mNotes, vexNotes) {
+  if (!Beam || !mNotes.length || !vexNotes.length) return [];
+
+  const beams = [];
+  let group = [];
+
+  function flushGroup() {
+    if (group.length > 1) {
+      try {
+        beams.push(new Beam(group));
+      } catch (error) {
+        console.warn('Beam render skipped:', error);
+      }
+    }
+    group = [];
+  }
+
+  mNotes.forEach((note, index) => {
+    if (!isBeamableNote(note)) {
+      flushGroup();
+      return;
+    }
+
+    group.push(vexNotes[index]);
+
+    if (note.beamBreakAfter) {
+      flushGroup();
+    }
+  });
+
+  flushGroup();
+  return beams;
+}
+
+function drawBeams(beams, context) {
+  beams.forEach(beam => {
+    try {
+      beam.setContext(context).draw();
+    } catch (error) {
+      console.warn('Beam draw skipped:', error);
+    }
+  });
+}
+
 function renderScore() {
   /* Remove only SVG and ghost overlay — preserve chord/lyric input elements */
   dom.canvas.querySelectorAll('svg, #ghost-overlay').forEach(el => el.remove());
@@ -1115,6 +1165,8 @@ function renderScore() {
       : [];
     const tupletsV1 = buildTupletsForMeasure(mNotes, vexV1, 0);
     const tupletsV2 = buildTupletsForMeasure(mV2Notes, vexV2, 1);
+    const beamsV1 = buildBeamsForMeasure(mNotes, vexV1);
+    const beamsV2 = buildBeamsForMeasure(mV2Notes, vexV2);
 
     const formatW = Math.max(80, staveW - 40 - RIGHT_BARLINE_NOTE_PAD);
 
@@ -1150,6 +1202,7 @@ function renderScore() {
       v2.draw(context, stave);
     }
 
+    drawBeams([...beamsV1, ...beamsV2], context);
     drawTuplets([...tupletsV1, ...tupletsV2], context);
 
     vexV1.forEach((vn, vi) => {
@@ -3120,6 +3173,45 @@ function toggleDot() {
   updateStatusBar();
 }
 
+function getBeamEditIndex(notes, ci) {
+  if (ci < notes.length && isBeamableNote(notes[ci])) return ci;
+  if (ci > 0 && isBeamableNote(notes[ci - 1])) return ci - 1;
+  return -1;
+}
+
+function toggleBeamBreak() {
+  const notes = activeNotes();
+  const ci = activeCursor();
+  const idx = getBeamEditIndex(notes, ci);
+  if (idx < 0) return;
+
+  const note = notes[idx];
+  note.beamBreakAfter = !note.beamBreakAfter;
+  if (!note.beamBreakAfter) delete note.beamBreakAfter;
+  renderScore();
+}
+
+function forceBeamConnect() {
+  const notes = activeNotes();
+  const ci = activeCursor();
+  const idx = getBeamEditIndex(notes, ci);
+  if (idx < 0) return;
+
+  let changed = false;
+
+  if (idx > 0 && isBeamableNote(notes[idx - 1]) && notes[idx - 1].beamBreakAfter) {
+    delete notes[idx - 1].beamBreakAfter;
+    changed = true;
+  }
+
+  if (idx + 1 < notes.length && isBeamableNote(notes[idx + 1]) && notes[idx].beamBreakAfter) {
+    delete notes[idx].beamBreakAfter;
+    changed = true;
+  }
+
+  if (changed) renderScore();
+}
+
 function toggleTie() {
   if (!requireFullToolsAccess()) return;
   const notes = activeNotes();
@@ -3143,6 +3235,8 @@ function toggleSlur() {
 dom.noteButtons.forEach(btn => { btn.addEventListener('click', () => setDuration(btn.dataset.duration)); });
 dom.btnRest.addEventListener('click', toggleRest);
 dom.btnDot.addEventListener('click', toggleDot);
+dom.btnBeamBreak?.addEventListener('click', toggleBeamBreak);
+dom.btnBeamConnect?.addEventListener('click', forceBeamConnect);
 dom.btnTuplet?.addEventListener('click', toggleTupletMode);
 dom.tupletCount?.addEventListener('change', () => setTupletCount(dom.tupletCount.value));
 dom.tupletOccupied?.addEventListener('change', () => setTupletOccupied(dom.tupletOccupied.value));
@@ -3682,6 +3776,8 @@ function updateStatusBar() {
     if (notes[ci].tie)  marks.push('붙임줄(Tie)');
     if (notes[ci].slur) marks.push('이음줄(Slur)');
     dom.statusLyric.textContent = marks.join(' + ');
+  } else if (ci < notes.length && notes[ci].beamBreakAfter) {
+    dom.statusLyric.textContent = 'Beam Break';
   } else if (ci < appState.notes.length && appState.notes[ci].lyrics && appState.notes[ci].lyrics.some(Boolean)) {
     const parts = appState.notes[ci].lyrics.map((l, i) => l ? `V${i + 1}: ${l}` : null).filter(Boolean);
     dom.statusLyric.textContent = 'Lyric: ' + parts.join(' | ');
