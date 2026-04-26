@@ -117,6 +117,10 @@ const appState = {
   articulationMode     : false,
   articulationSelected : null,   // 'staccato' | 'accent' | 'tenuto' | 'marcato' | 'staccatissimo'
 
+  /* ── Strum ── */
+  strumMode     : false,
+  strumSelected : null,   // 'down' | 'up'
+
   /* ── Dynamics ── */
   dynamicsMode     : false,
   dynamicsSelected : null,   // 'pp' | 'p' | 'mp' | 'mf' | 'f' | 'ff' | 'sfz' | 'fp'
@@ -463,6 +467,8 @@ const dom = {
   repeatButtons    : document.querySelectorAll('.repeat-btn'),
   /* articulation buttons */
   articButtons     : document.querySelectorAll('.artic-btn'),
+  /* strum buttons */
+  strumButtons      : document.querySelectorAll('.strum-btn'),
   /* dynamics buttons */
   dynamicButtons   : document.querySelectorAll('.dynamic-btn'),
   /* voice part buttons */
@@ -661,6 +667,7 @@ function applyAccessLocks() {
       document.getElementById('gap-panel-reset'),
       ...dom.repeatButtons,
       ...dom.articButtons,
+      ...dom.strumButtons,
       ...dom.dynamicButtons,
       ...dom.voiceButtons,
       ...dom.lyricVerseButtons,
@@ -671,6 +678,7 @@ function applyAccessLocks() {
       ...document.querySelectorAll('[data-action="set-time"]'),
       ...document.querySelectorAll('[data-action="set-repeat"]'),
       ...document.querySelectorAll('[data-action="set-artic"]'),
+      ...document.querySelectorAll('[data-action="set-strum"]'),
       ...document.querySelectorAll('[data-action="set-dynamic"]'),
       ...document.querySelectorAll('[data-action="set-form"]'),
       ...document.querySelectorAll('[data-action="set-voice"]'),
@@ -1578,6 +1586,8 @@ function renderScore() {
     drawAllRepeatMarkers(svgForm);
     /* ── Draw articulation markings ── */
     drawAllArticulations(svgForm);
+    /* ── Draw strum markings ── */
+    drawAllStrums(svgForm);
     /* ── Draw dynamics markings ── */
     drawAllDynamics(svgForm);
     /* ── Draw ties and slurs ── */
@@ -1780,6 +1790,33 @@ function drawArticStaccatissimo(svg, bb, sls) {
   svg.appendChild(svgEl('rect', { x: cx - w/2, y: y0, width: w, height: h, rx: w/2, fill: '#000' }));
 }
 
+function drawStrumDown(svg, bb, sls) {
+  const cx = bb.x + bb.w / 2;
+  const topY = bb.y - Math.max(27, sls * 2.7);
+  const w = Math.max(8, sls * 0.78);
+  const h = Math.max(16, sls * 1.65);
+  const sw = Math.max(1.6, sls * 0.18);
+
+  svg.append(
+    svgEl('line', { x1: cx - w / 2, y1: topY, x2: cx + w / 2, y2: topY, stroke: '#000', 'stroke-width': sw, 'stroke-linecap': 'square' }),
+    svgEl('line', { x1: cx - w / 2, y1: topY, x2: cx - w / 2, y2: topY + h, stroke: '#000', 'stroke-width': sw, 'stroke-linecap': 'square' }),
+    svgEl('line', { x1: cx + w / 2, y1: topY, x2: cx + w / 2, y2: topY + h, stroke: '#000', 'stroke-width': sw, 'stroke-linecap': 'square' })
+  );
+}
+
+function drawStrumUp(svg, bb, sls) {
+  const cx = bb.x + bb.w / 2;
+  const topY = bb.y - Math.max(26, sls * 2.6);
+  const w = Math.max(11, sls * 1.05);
+  const h = Math.max(15, sls * 1.5);
+  const sw = Math.max(1.6, sls * 0.18);
+
+  svg.append(
+    svgEl('line', { x1: cx - w / 2, y1: topY, x2: cx, y2: topY + h, stroke: '#000', 'stroke-width': sw, 'stroke-linecap': 'square' }),
+    svgEl('line', { x1: cx + w / 2, y1: topY, x2: cx, y2: topY + h, stroke: '#000', 'stroke-width': sw, 'stroke-linecap': 'square' })
+  );
+}
+
 /** Draw all articulations on top of the score SVG */
 function drawAllArticulations(svg) {
   if (!svg) return;
@@ -1795,6 +1832,18 @@ function drawAllArticulations(svg) {
       case 'marcato':       drawArticMarcato(svg, bb, sls);       break;
       case 'staccatissimo': drawArticStaccatissimo(svg, bb, sls); break;
     }
+  });
+}
+
+function drawAllStrums(svg) {
+  if (!svg) return;
+  const sls = appState.layout.staffLineSpacing;
+  appState.renderedBBoxes.forEach(bb => {
+    const notesArr = bb.voice === 0 ? appState.notes : appState.voice2Notes;
+    const note = notesArr[bb.globalIndex];
+    if (!note || !note.strum) return;
+    if (note.strum === 'down') drawStrumDown(svg, bb, sls);
+    if (note.strum === 'up') drawStrumUp(svg, bb, sls);
   });
 }
 
@@ -2884,6 +2933,7 @@ dom.canvas.addEventListener('mousedown', (e) => {
     /* In note-click modes (dynamics, articulation, fermata, chord, lyric),
        skip drag-start so the click event reaches handleSingleClick cleanly. */
     const isNoteClickMode = appState.dynamicsMode || appState.articulationMode ||
+      appState.strumMode ||
       appState.chordMode || appState.lyricMode ||
       (appState.repeatMode && appState.repeatSelected === 'fermata');
     if (isNoteClickMode) return;
@@ -2908,6 +2958,7 @@ dom.canvas.addEventListener('mousedown', (e) => {
     !appState.songFormMode &&
     !appState.repeatMode &&
     !appState.articulationMode &&
+    !appState.strumMode &&
     !appState.dynamicsMode &&
     !appState.measureGapMode
   ) {
@@ -3022,6 +3073,7 @@ dom.canvas.addEventListener('click', (e) => {
   /* Modes that require clicking directly on a note must bypass the
      _mouseDownOnNote early-return, otherwise handleSingleClick is never reached. */
   const needsNoteClick = appState.dynamicsMode || appState.articulationMode ||
+    appState.strumMode ||
     appState.chordMode || appState.lyricMode ||
     (appState.repeatMode && appState.repeatSelected === 'fermata');
   if (appState._mouseDidDrag || (appState._mouseDownOnNote && !needsNoteClick)) {
@@ -3080,6 +3132,24 @@ function handleSingleClick(mx, my) {
           delete n.articulation;   // toggle off
         } else {
           n.articulation = appState.articulationSelected;
+        }
+        renderScore();
+      }
+    }
+    return;
+  }
+
+  /* ── Strum mode ── */
+  if (appState.strumMode && appState.strumSelected) {
+    const hit = hitTestNote(mx, my);
+    if (hit) {
+      const notesArr = hit.voice === 0 ? appState.notes : appState.voice2Notes;
+      const n = notesArr[hit.index];
+      if (n) {
+        if (n.strum === appState.strumSelected) {
+          delete n.strum;
+        } else {
+          n.strum = appState.strumSelected;
         }
         renderScore();
       }
@@ -3217,6 +3287,7 @@ document.addEventListener('keydown', (e) => {
     if (appState.selectedNotes.length) { e.preventDefault(); appState.selectedNotes = []; renderScore(); updateStatusBar(); return; }
     if (appState.dynamicsMode)    { e.preventDefault(); exitDynamicsMode();     return; }
     if (appState.articulationMode){ e.preventDefault(); exitArticulationMode(); return; }
+    if (appState.strumMode)       { e.preventDefault(); exitStrumMode();        return; }
     if (appState.repeatMode)      { e.preventDefault(); exitRepeatMode();       return; }
     if (appState.songFormMode)    { e.preventDefault(); exitSongFormMode();     return; }
     if (appState.measureGapMode)  { e.preventDefault(); exitGapMode();          return; }
@@ -3652,6 +3723,7 @@ document.querySelectorAll('.repeat-btn').forEach(btn => {
       if (appState.lyricMode)        toggleLyricMode();
       if (appState.songFormMode)     exitSongFormMode();
       if (appState.articulationMode) exitArticulationMode();
+      if (appState.strumMode)        exitStrumMode();
       if (appState.dynamicsMode)     exitDynamicsMode();
       if (appState.measureGapMode)   exitGapMode();
       appState.repeatMode     = true;
@@ -3684,12 +3756,46 @@ document.querySelectorAll('.artic-btn').forEach(btn => {
       if (appState.lyricMode)      toggleLyricMode();
       if (appState.repeatMode)     exitRepeatMode();
       if (appState.songFormMode)   exitSongFormMode();
+      if (appState.strumMode)      exitStrumMode();
       if (appState.dynamicsMode)   exitDynamicsMode();
       if (appState.measureGapMode) exitGapMode();
       appState.articulationMode     = true;
       appState.articulationSelected = type;
       document.querySelectorAll('.artic-btn').forEach(b =>
         b.classList.toggle('active', b.dataset.artic === type));
+      dom.canvas.classList.add('cursor-form');
+      updateStatusBar();
+    }
+  });
+});
+
+/* ── Strum Mode ── */
+function exitStrumMode() {
+  appState.strumMode     = false;
+  appState.strumSelected = null;
+  document.querySelectorAll('.strum-btn').forEach(b => b.classList.remove('active'));
+  dom.canvas.classList.remove('cursor-form');
+  updateStatusBar();
+}
+
+document.querySelectorAll('.strum-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (!requireFullToolsAccess()) return;
+    const type = btn.dataset.strum;
+    if (appState.strumMode && appState.strumSelected === type) {
+      exitStrumMode();
+    } else {
+      if (appState.chordMode)        toggleChordMode();
+      if (appState.lyricMode)        toggleLyricMode();
+      if (appState.repeatMode)       exitRepeatMode();
+      if (appState.songFormMode)     exitSongFormMode();
+      if (appState.articulationMode) exitArticulationMode();
+      if (appState.dynamicsMode)     exitDynamicsMode();
+      if (appState.measureGapMode)   exitGapMode();
+      appState.strumMode     = true;
+      appState.strumSelected = type;
+      document.querySelectorAll('.strum-btn').forEach(b =>
+        b.classList.toggle('active', b.dataset.strum === type));
       dom.canvas.classList.add('cursor-form');
       updateStatusBar();
     }
@@ -3717,6 +3823,7 @@ document.querySelectorAll('.dynamic-btn').forEach(btn => {
       if (appState.repeatMode)       exitRepeatMode();
       if (appState.songFormMode)     exitSongFormMode();
       if (appState.articulationMode) exitArticulationMode();
+      if (appState.strumMode)        exitStrumMode();
       if (appState.measureGapMode)   exitGapMode();
       appState.dynamicsMode     = true;
       appState.dynamicsSelected = type;
@@ -3796,6 +3903,7 @@ document.querySelectorAll('.form-btn').forEach(btn => {
       if (appState.lyricMode)        toggleLyricMode();
       if (appState.repeatMode)       exitRepeatMode();
       if (appState.articulationMode) exitArticulationMode();
+      if (appState.strumMode)        exitStrumMode();
       if (appState.dynamicsMode)     exitDynamicsMode();
       appState.songFormMode     = true;
       appState.songFormSelected = form;
@@ -3853,6 +3961,7 @@ document.getElementById('btn-gap-mode').addEventListener('click', () => {
     if (appState.lyricMode)        toggleLyricMode();
     if (appState.repeatMode)       exitRepeatMode();
     if (appState.articulationMode) exitArticulationMode();
+    if (appState.strumMode)        exitStrumMode();
     if (appState.dynamicsMode)     exitDynamicsMode();
     if (appState.songFormMode)     exitSongFormMode();
     appState.measureGapMode      = true;
@@ -4053,6 +4162,9 @@ dom.btnClear.addEventListener('click', () => {
   if (appState.chordMode)  { appState.chordMode  = false; dom.btnChord.classList.remove('active'); hideChordInput(); }
   if (appState.lyricMode)  { appState.lyricMode  = false; dom.btnLyric.classList.remove('active'); hideLyricInput(); }
   if (appState.repeatMode) exitRepeatMode();
+  if (appState.articulationMode) exitArticulationMode();
+  if (appState.strumMode) exitStrumMode();
+  if (appState.dynamicsMode) exitDynamicsMode();
   renderScore();
 });
 dom.btnPNG.addEventListener('click', exportToPNG);
@@ -4179,6 +4291,12 @@ function updateStatusBar() {
       'staccatissimo': '▾ Staccatissimo',
     };
     dom.statusLyric.textContent = '🎵 Artic: ' + (aLabels[appState.articulationSelected] || '') + ' — click a note';
+  } else if (appState.strumMode && appState.strumSelected) {
+    const sLabels = {
+      down: '다운 스트럼',
+      up: '업 스트럼',
+    };
+    dom.statusLyric.textContent = 'Strum: ' + (sLabels[appState.strumSelected] || '') + ' — click a note/rest';
   } else if (appState.repeatMode && appState.repeatSelected) {
     const repeatLabels = {
       'repeat-start': '|: Repeat Start',  'repeat-end': 'Repeat End :|',
@@ -4308,6 +4426,11 @@ function updateStatusBar() {
       b.classList.toggle('checked',
         appState.articulationMode && appState.articulationSelected === b.dataset.value));
 
+    /* 표현 — strum */
+    menuBar.querySelectorAll('[data-action="set-strum"]').forEach(b =>
+      b.classList.toggle('checked',
+        appState.strumMode && appState.strumSelected === b.dataset.value));
+
     /* 표현 — dynamics */
     menuBar.querySelectorAll('[data-action="set-dynamic"]').forEach(b =>
       b.classList.toggle('checked',
@@ -4388,6 +4511,12 @@ function updateStatusBar() {
         case 'set-artic':
           closeAll();
           document.querySelector(`.artic-btn[data-artic="${value}"]`)?.click();
+          break;
+
+        /* 표현 — strum */
+        case 'set-strum':
+          closeAll();
+          document.querySelector(`.strum-btn[data-strum="${value}"]`)?.click();
           break;
 
         /* 표현 — dynamics */

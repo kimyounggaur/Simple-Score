@@ -139,6 +139,10 @@
         <li><button class="mb-action mb-check" data-action="set-artic" data-value="marcato">^ Marcato</button></li>
         <li><button class="mb-action mb-check" data-action="set-artic" data-value="staccatissimo">▾ Staccatissimo</button></li>
         <li class="mb-sep"></li>
+        <li class="mb-section-label">스트럼</li>
+        <li><button class="mb-action mb-check" data-action="set-strum" data-value="down">▥ 다운 스트럼</button></li>
+        <li><button class="mb-action mb-check" data-action="set-strum" data-value="up">∨ 업 스트럼</button></li>
+        <li class="mb-sep"></li>
         <li class="mb-section-label">다이나믹</li>
         <li><button class="mb-action mb-check" data-action="set-dynamic" data-value="pp"><i>pp</i></button></li>
         <li><button class="mb-action mb-check" data-action="set-dynamic" data-value="p"><i>p</i></button></li>
@@ -547,6 +551,21 @@
           <button class="artic-btn" data-artic="tenuto">— Tenuto</button>
           <button class="artic-btn" data-artic="marcato">^ Marcato</button>
           <button class="artic-btn" data-artic="staccatissimo">▾ Staccatissimo</button>
+        </div>
+      </div>
+
+      <!-- Strum -->
+      <div class="sidebar-section">
+        <h3 class="sidebar-title">Strum</h3>
+        <div class="btn-group strum-buttons">
+          <button class="strum-btn" data-strum="down">
+            <span class="strum-icon strum-icon-down" aria-hidden="true"></span>
+            <span>Down</span>
+          </button>
+          <button class="strum-btn" data-strum="up">
+            <span class="strum-icon strum-icon-up" aria-hidden="true"></span>
+            <span>Up</span>
+          </button>
         </div>
       </div>
 

@@ -1087,6 +1087,70 @@ input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.1); }
 .dynamic-btn:hover { background: var(--surface-hover); border-color: rgba(0,0,0,0.22); }
 .dynamic-btn.active { background: #e8f0fe; border-color: #1a73e8; color: #1558d6; }
 
+/* ─── Strum buttons ─── */
+.strum-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.strum-btn {
+  min-height: 32px;
+  padding: 5px 5px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  border: 1.5px solid rgba(0,0,0,0.14);
+  background: var(--surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.strum-btn:hover { background: var(--surface-hover); border-color: rgba(0,0,0,0.22); }
+.strum-btn.active { background: #fff3e0; border-color: #f57c00; color: #bf360c; }
+.strum-icon {
+  position: relative;
+  display: inline-block;
+  width: 12px;
+  height: 16px;
+  flex-shrink: 0;
+}
+.strum-icon-down::before,
+.strum-icon-down::after,
+.strum-icon-up::before,
+.strum-icon-up::after {
+  content: "";
+  position: absolute;
+  background: currentColor;
+}
+.strum-icon-down::before {
+  left: 2px;
+  top: 2px;
+  width: 8px;
+  height: 2px;
+}
+.strum-icon-down::after {
+  left: 2px;
+  top: 2px;
+  width: 2px;
+  height: 12px;
+  box-shadow: 6px 0 0 currentColor;
+}
+.strum-icon-up::before,
+.strum-icon-up::after {
+  top: 4px;
+  width: 2px;
+  height: 12px;
+  transform-origin: bottom center;
+}
+.strum-icon-up::before {
+  left: 3px;
+  transform: rotate(-25deg);
+}
+.strum-icon-up::after {
+  right: 3px;
+  transform: rotate(25deg);
+}
+
 /* ─── Voice Part (성부) buttons ─── */
 .voice-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
 .voice-btn {
