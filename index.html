@@ -424,6 +424,15 @@
           <button class="tool-btn" id="btn-beam-connect" title="Connect beam around selected 8th/16th note">
             <span class="note-symbol">𝅘𝅥𝅮𝅘𝅥𝅮</span><span class="note-label">Beam Connect</span>
           </button>
+          <button class="tool-btn" id="btn-stem-up" title="Force selected note stem and beam upward">
+            <span class="note-symbol">↥</span><span class="note-label">Stem Up</span>
+          </button>
+          <button class="tool-btn" id="btn-stem-down" title="Force selected note stem and beam downward">
+            <span class="note-symbol">↧</span><span class="note-label">Stem Down</span>
+          </button>
+          <button class="tool-btn" id="btn-stem-auto" title="Reset selected note stem and beam direction">
+            <span class="note-symbol">↕</span><span class="note-label">Stem Auto</span>
+          </button>
           <button class="tool-btn" id="btn-chord" title="Chord Symbol (L)">
             <span class="note-symbol chord-sym">C⁷</span><span class="note-label">Chord</span><kbd>L</kbd>
           </button>
@@ -453,35 +462,6 @@
               <option value="8">8개 분량</option>
             </select>
           </label>
-        </div>
-      </div>
-
-      <!-- Lyric Verse (가사 성부) -->
-      <div class="sidebar-section">
-        <h3 class="sidebar-title">가사 성부 (Lyric Verse)</h3>
-        <div class="btn-group lyric-verse-buttons">
-          <button class="lyric-verse-btn active" data-verse="0">1st</button>
-          <button class="lyric-verse-btn"        data-verse="1">2nd</button>
-          <button class="lyric-verse-btn"        data-verse="2">3rd</button>
-          <button class="lyric-verse-btn"        data-verse="3">4th</button>
-          <button class="lyric-verse-btn"        data-verse="4">5th</button>
-        </div>
-      </div>
-
-      <!-- Song Form -->
-      <div class="sidebar-section">
-        <h3 class="sidebar-title">Song Form</h3>
-        <div class="btn-group form-buttons">
-          <button class="form-btn" data-form="intro">Intro</button>
-          <button class="form-btn" data-form="verse">Verse</button>
-          <button class="form-btn" data-form="pre-chorus">Pre-Ch</button>
-          <button class="form-btn" data-form="chorus">Chorus</button>
-          <button class="form-btn" data-form="interlude">Interlude</button>
-          <button class="form-btn" data-form="bridge">Bridge</button>
-          <button class="form-btn" data-form="climax">Climax</button>
-          <button class="form-btn" data-form="outro">Outro</button>
-          <button class="form-btn" data-form="fade-in">Fade In</button>
-          <button class="form-btn" data-form="fade-out">Fade Out</button>
         </div>
       </div>
 
@@ -588,6 +568,34 @@
         <div class="btn-group voice-buttons">
           <button class="voice-btn active" data-voice="0">1성부 (V1)</button>
           <button class="voice-btn"        data-voice="1">2성부 (V2)</button>
+        </div>
+      </div>
+      <!-- Lyric Verse (가사 성부) -->
+      <div class="sidebar-section">
+        <h3 class="sidebar-title">가사 성부 (Lyric Verse)</h3>
+        <div class="btn-group lyric-verse-buttons">
+          <button class="lyric-verse-btn active" data-verse="0">1st</button>
+          <button class="lyric-verse-btn"        data-verse="1">2nd</button>
+          <button class="lyric-verse-btn"        data-verse="2">3rd</button>
+          <button class="lyric-verse-btn"        data-verse="3">4th</button>
+          <button class="lyric-verse-btn"        data-verse="4">5th</button>
+        </div>
+      </div>
+
+      <!-- Song Form -->
+      <div class="sidebar-section">
+        <h3 class="sidebar-title">Song Form</h3>
+        <div class="btn-group form-buttons">
+          <button class="form-btn" data-form="intro">Intro</button>
+          <button class="form-btn" data-form="verse">Verse</button>
+          <button class="form-btn" data-form="pre-chorus">Pre-Ch</button>
+          <button class="form-btn" data-form="chorus">Chorus</button>
+          <button class="form-btn" data-form="interlude">Interlude</button>
+          <button class="form-btn" data-form="bridge">Bridge</button>
+          <button class="form-btn" data-form="climax">Climax</button>
+          <button class="form-btn" data-form="outro">Outro</button>
+          <button class="form-btn" data-form="fade-in">Fade In</button>
+          <button class="form-btn" data-form="fade-out">Fade Out</button>
         </div>
       </div>
     </aside>

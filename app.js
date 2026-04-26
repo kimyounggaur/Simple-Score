@@ -393,6 +393,9 @@ const dom = {
   btnDot      : document.getElementById('btn-dot'),
   btnBeamBreak: document.getElementById('btn-beam-break'),
   btnBeamConnect: document.getElementById('btn-beam-connect'),
+  btnStemUp   : document.getElementById('btn-stem-up'),
+  btnStemDown : document.getElementById('btn-stem-down'),
+  btnStemAuto : document.getElementById('btn-stem-auto'),
   btnTuplet   : document.getElementById('btn-tuplet'),
   tupletCount : document.getElementById('tuplet-count'),
   tupletOccupied : document.getElementById('tuplet-occupied'),
@@ -876,6 +879,12 @@ function buildVexDuration(n) {
   return d;
 }
 
+function getNoteStemDirection(note, voiceNum) {
+  if (note?.stemDirection === 'up') return 1;
+  if (note?.stemDirection === 'down') return -1;
+  return voiceNum === 0 ? 1 : -1;
+}
+
 /**
  * After VexFlow draws a stave, find the time-signature SVG group(s) and
  * rescale them so they fit exactly within the 4 staff-line gaps.
@@ -916,12 +925,11 @@ function rescaleTimeSig(stave, staffLineSpacing) {
  * voiceNum: 0 = Voice 1 (stems up, user noteColor), 1 = Voice 2 (stems down, V2_COLOR)
  */
 function buildVexNotesForVoice(mNotes, voiceNum, cursorIdx, notesArr) {
-  const stemDir = voiceNum === 0 ? 1 : -1;
   return mNotes.map(n => {
     const sn = new StaveNote({
       keys: n.isRest ? ['b/4'] : n.keys,
       duration: buildVexDuration(n),
-      stem_direction: stemDir,
+      stem_direction: getNoteStemDirection(n, voiceNum),
     });
     if (n.isDotted) Dot.buildAndAttach([sn]);
     if (!n.isRest) {
@@ -1036,16 +1044,19 @@ function buildBeamsForMeasure(mNotes, vexNotes) {
 
   const beams = [];
   let group = [];
+  let groupDirection = null;
 
   function flushGroup() {
     if (group.length > 1) {
       try {
-        beams.push(new Beam(group));
+        const options = groupDirection ? { stem_direction: groupDirection } : undefined;
+        beams.push(new Beam(group, options));
       } catch (error) {
         console.warn('Beam render skipped:', error);
       }
     }
     group = [];
+    groupDirection = null;
   }
 
   mNotes.forEach((note, index) => {
@@ -1054,6 +1065,11 @@ function buildBeamsForMeasure(mNotes, vexNotes) {
       return;
     }
 
+    const stemDirection = vexNotes[index]?.getStemDirection?.() || null;
+    if (groupDirection !== null && stemDirection !== groupDirection) {
+      flushGroup();
+    }
+    groupDirection = stemDirection;
     group.push(vexNotes[index]);
 
     if (note.beamBreakAfter) {
@@ -3212,6 +3228,23 @@ function forceBeamConnect() {
   if (changed) renderScore();
 }
 
+function setStemDirectionForCursor(direction) {
+  const notes = activeNotes();
+  const ci = activeCursor();
+  if (ci >= notes.length) return;
+
+  const note = notes[ci];
+  if (!note || note.isRest || note.duration === 'w') return;
+
+  if (direction === 'auto') {
+    delete note.stemDirection;
+  } else {
+    note.stemDirection = direction;
+  }
+
+  renderScore();
+}
+
 function toggleTie() {
   if (!requireFullToolsAccess()) return;
   const notes = activeNotes();
@@ -3237,6 +3270,9 @@ dom.btnRest.addEventListener('click', toggleRest);
 dom.btnDot.addEventListener('click', toggleDot);
 dom.btnBeamBreak?.addEventListener('click', toggleBeamBreak);
 dom.btnBeamConnect?.addEventListener('click', forceBeamConnect);
+dom.btnStemUp?.addEventListener('click', () => setStemDirectionForCursor('up'));
+dom.btnStemDown?.addEventListener('click', () => setStemDirectionForCursor('down'));
+dom.btnStemAuto?.addEventListener('click', () => setStemDirectionForCursor('auto'));
 dom.btnTuplet?.addEventListener('click', toggleTupletMode);
 dom.tupletCount?.addEventListener('change', () => setTupletCount(dom.tupletCount.value));
 dom.tupletOccupied?.addEventListener('change', () => setTupletOccupied(dom.tupletOccupied.value));
@@ -3778,6 +3814,8 @@ function updateStatusBar() {
     dom.statusLyric.textContent = marks.join(' + ');
   } else if (ci < notes.length && notes[ci].beamBreakAfter) {
     dom.statusLyric.textContent = 'Beam Break';
+  } else if (ci < notes.length && notes[ci].stemDirection) {
+    dom.statusLyric.textContent = `Stem ${notes[ci].stemDirection === 'up' ? 'Up' : 'Down'}`;
   } else if (ci < appState.notes.length && appState.notes[ci].lyrics && appState.notes[ci].lyrics.some(Boolean)) {
     const parts = appState.notes[ci].lyrics.map((l, i) => l ? `V${i + 1}: ${l}` : null).filter(Boolean);
     dom.statusLyric.textContent = 'Lyric: ' + parts.join(' | ');
