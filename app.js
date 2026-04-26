@@ -70,7 +70,12 @@ const appState = {
   },
 
   selectedNoteIndex : -1,
+  selectedNotes     : [],
   isDragging        : false,
+  isRangeSelecting  : false,
+  rangeSelectStart  : null,
+  rangeSelectCurrent: null,
+  rangeSelectMoved  : false,
   _mouseDidDrag     : false,
   _mouseDownOnNote  : false,
 
@@ -202,6 +207,7 @@ const DYNAMICS_DEFS = {
 
 const DRAG_COLOR       = '#FF9800';
 const SELECT_COLOR     = '#4A90D9';
+const MULTI_SELECT_COLOR = '#F97316';
 const V2_COLOR         = '#1565C0';   // blue for voice 2 notes
 const CURSOR_COLOR     = '#4A90D9';
 const GHOST_COLOR      = '#4A90D9';
@@ -801,6 +807,19 @@ function activeNotes()      { return appState.currentVoice === 0 ? appState.note
 function activeCursor()     { return appState.currentVoice === 0 ? appState.cursorIndex : appState.v2CursorIdx; }
 function setActiveCursor(i) { if (appState.currentVoice === 0) appState.cursorIndex = i; else appState.v2CursorIdx = i; }
 
+function isNoteSelected(voice, index) {
+  return appState.selectedNotes.some((note) => note.voice === voice && note.index === index);
+}
+
+function clearRangeSelection() {
+  appState.selectedNotes = [];
+  appState.isRangeSelecting = false;
+  appState.rangeSelectStart = null;
+  appState.rangeSelectCurrent = null;
+  appState.rangeSelectMoved = false;
+  hideRangeSelectionBox();
+}
+
 
 /* ═══════════════════════════════════════
    §5  PITCH UTILITIES
@@ -945,9 +964,13 @@ function buildVexNotesForVoice(mNotes, voiceNum, cursorIdx, notesArr) {
     const isDrag = appState.isDragging
       && appState.selectedNoteVoice === voiceNum
       && n._gi === appState.selectedNoteIndex;
+    const isRangeSelected = isNoteSelected(voiceNum, n._gi);
 
     if (isDrag) {
       sn.setStyle({ fillStyle: DRAG_COLOR, strokeStyle: DRAG_COLOR });
+    } else if (isRangeSelected) {
+      sn.setStyle({ fillStyle: MULTI_SELECT_COLOR, strokeStyle: MULTI_SELECT_COLOR });
+      sn.setStemStyle({ fillStyle: MULTI_SELECT_COLOR, strokeStyle: MULTI_SELECT_COLOR });
     } else if (isCursor) {
       sn.setStyle({ fillStyle: SELECT_COLOR, strokeStyle: SELECT_COLOR });
     } else if (voiceNum === 0) {
@@ -2548,6 +2571,73 @@ function getCanvasCoords(e) {
   };
 }
 
+function getRangeSelectionBoxEl() {
+  let box = document.getElementById('range-selection-box');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'range-selection-box';
+    dom.canvas.appendChild(box);
+  }
+  return box;
+}
+
+function getRangeRect() {
+  if (!appState.rangeSelectStart || !appState.rangeSelectCurrent) return null;
+  const start = appState.rangeSelectStart;
+  const current = appState.rangeSelectCurrent;
+  const left = Math.min(start.x, current.x);
+  const top = Math.min(start.y, current.y);
+  const right = Math.max(start.x, current.x);
+  const bottom = Math.max(start.y, current.y);
+
+  return { left, top, right, bottom, width: right - left, height: bottom - top };
+}
+
+function updateRangeSelectionBox() {
+  const rect = getRangeRect();
+  if (!rect) return;
+  const box = getRangeSelectionBoxEl();
+  box.style.display = 'block';
+  box.style.left = `${rect.left + 20}px`;
+  box.style.top = `${rect.top + 30}px`;
+  box.style.width = `${rect.width}px`;
+  box.style.height = `${rect.height}px`;
+}
+
+function hideRangeSelectionBox() {
+  const box = document.getElementById('range-selection-box');
+  if (box) box.style.display = 'none';
+}
+
+function selectNotesInRange() {
+  const rect = getRangeRect();
+  if (!rect) return [];
+
+  const selected = appState.renderedBBoxes
+    .filter((bb) => {
+      const cx = bb.x + bb.w / 2;
+      const cy = bb.y + bb.h / 2;
+      return cx >= rect.left && cx <= rect.right && cy >= rect.top && cy <= rect.bottom;
+    })
+    .map((bb) => ({ voice: bb.voice, index: bb.globalIndex }))
+    .sort((left, right) => left.voice - right.voice || left.index - right.index);
+
+  appState.selectedNotes = selected;
+
+  if (selected.length > 0) {
+    const first = selected[0];
+    appState.currentVoice = first.voice;
+    appState.selectedNoteVoice = first.voice;
+    appState.selectedNoteIndex = first.index;
+    setActiveCursor(first.index);
+    document.querySelectorAll('.voice-btn').forEach((button) =>
+      button.classList.toggle('active', Number(button.dataset.voice) === first.voice)
+    );
+  }
+
+  return selected;
+}
+
 function getStaveForY(y) {
   const spacing = appState.layout.staffSpacing;
   for (const sc of appState.staveCache) {
@@ -2660,12 +2750,40 @@ dom.canvas.addEventListener('mousedown', (e) => {
     hideGhost();                                   // ★ hide ghost during drag
     renderScore();
     e.preventDefault();
+  } else if (
+    !appState.chordMode &&
+    !appState.lyricMode &&
+    !appState.songFormMode &&
+    !appState.repeatMode &&
+    !appState.articulationMode &&
+    !appState.dynamicsMode &&
+    !appState.measureGapMode
+  ) {
+    appState.isRangeSelecting = true;
+    appState.rangeSelectStart = { x: mx, y: my };
+    appState.rangeSelectCurrent = { x: mx, y: my };
+    appState.rangeSelectMoved = false;
+    hideGhost();
   }
 });
 
 /* ── Mousemove ── */
 dom.canvas.addEventListener('mousemove', (e) => {
   const { x: mx, y: my } = getCanvasCoords(e);
+
+  if (appState.isRangeSelecting) {
+    appState.rangeSelectCurrent = { x: mx, y: my };
+    const start = appState.rangeSelectStart;
+    const moved = start && Math.hypot(mx - start.x, my - start.y) > 5;
+
+    if (moved) {
+      appState.rangeSelectMoved = true;
+      appState._mouseDidDrag = true;
+      hideGhost();
+      updateRangeSelectionBox();
+    }
+    return;
+  }
 
   /* dragging an existing note */
   if (appState.isDragging && appState.selectedNoteIndex >= 0) {
@@ -2699,6 +2817,23 @@ dom.canvas.addEventListener('mousemove', (e) => {
 
 /* ── Mouseup ── */
 dom.canvas.addEventListener('mouseup', () => {
+  if (appState.isRangeSelecting) {
+    const didSelect = appState.rangeSelectMoved;
+    if (didSelect) {
+      selectNotesInRange();
+    }
+    appState.isRangeSelecting = false;
+    appState.rangeSelectStart = null;
+    appState.rangeSelectCurrent = null;
+    appState.rangeSelectMoved = false;
+    hideRangeSelectionBox();
+    if (didSelect) {
+      renderScore();
+      updateStatusBar();
+    }
+    return;
+  }
+
   if (!appState.isDragging) return;
   if (appState._mouseDidDrag && appState.selectedNoteIndex >= 0) {
     const dragArr = appState.selectedNoteVoice === 0 ? appState.notes : appState.voice2Notes;
@@ -2714,6 +2849,13 @@ dom.canvas.addEventListener('mouseup', () => {
 /* ── Mouseleave ── */
 dom.canvas.addEventListener('mouseleave', () => {
   hideGhost();                                     // ★ hide ghost when leaving
+  if (appState.isRangeSelecting) {
+    appState.isRangeSelecting = false;
+    appState.rangeSelectStart = null;
+    appState.rangeSelectCurrent = null;
+    appState.rangeSelectMoved = false;
+    hideRangeSelectionBox();
+  }
   if (appState.isDragging) {
     appState.isDragging = false;
     appState.selectedNoteIndex = -1;
@@ -2839,6 +2981,9 @@ function handleSingleClick(mx, my) {
   }
 
   const hit = hitTestNote(mx, my);
+  if (appState.selectedNotes.length) {
+    appState.selectedNotes = [];
+  }
 
   if (hit) {
     /* Switch to the voice that was clicked */
@@ -2917,6 +3062,7 @@ document.addEventListener('keydown', (e) => {
 
   /* ── Escape exits dynamics / articulation / repeat / song form / gap mode ── */
   if (key === 'Escape') {
+    if (appState.selectedNotes.length) { e.preventDefault(); appState.selectedNotes = []; renderScore(); updateStatusBar(); return; }
     if (appState.dynamicsMode)    { e.preventDefault(); exitDynamicsMode();     return; }
     if (appState.articulationMode){ e.preventDefault(); exitArticulationMode(); return; }
     if (appState.repeatMode)      { e.preventDefault(); exitRepeatMode();       return; }
@@ -3780,7 +3926,9 @@ function updateStatusBar() {
   }
 
   /* lyric / repeat / articulation / dynamics status */
-  if (appState.lyricMode) {
+  if (appState.selectedNotes.length) {
+    dom.statusLyric.textContent = `Selected ${appState.selectedNotes.length} notes`;
+  } else if (appState.lyricMode) {
     dom.statusLyric.textContent = '✏️ Lyric Mode';
   } else if (appState.dynamicsMode && appState.dynamicsSelected) {
     dom.statusLyric.textContent = '𝆑 Dynamics: ' + appState.dynamicsSelected + ' — click a note';

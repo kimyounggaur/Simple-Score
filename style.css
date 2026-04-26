@@ -674,6 +674,16 @@ input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.1); }
 #score-canvas svg { display: block; }
 #score-canvas.cursor-grab { cursor: grab; }
 #score-canvas.cursor-grabbing { cursor: grabbing; }
+#range-selection-box {
+  position: absolute;
+  z-index: 20;
+  display: none;
+  pointer-events: none;
+  border: 1px solid rgba(249, 115, 22, 0.75);
+  border-radius: 4px;
+  background: rgba(249, 115, 22, 0.12);
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.55) inset;
+}
 
 /* ─── Cursor blink animation ─── */
 @keyframes cursorBlink {

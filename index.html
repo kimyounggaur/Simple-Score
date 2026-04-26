@@ -275,16 +275,16 @@
 
       <!-- Settings -->
       <div class="toolbar-group" id="toolbar-settings">
-        <span class="toolbar-group-label">Settings</span>
+        <span class="toolbar-group-label">설정</span>
         <div class="toolbar-controls-row">
-          <span class="tb-mini-label">Key</span>
+          <span class="tb-mini-label">조</span>
           <select id="key-sig-select" class="tb-select">
             <option value="C">C Major</option><option value="G">G Major</option>
             <option value="D">D Major</option><option value="A">A Major</option>
             <option value="E">E Major</option><option value="F">F Major</option>
             <option value="Bb">Bb Major</option><option value="Eb">Eb Major</option>
           </select>
-          <span class="tb-mini-label">Time</span>
+          <span class="tb-mini-label">박자</span>
           <select id="time-sig-select" class="tb-select">
             <option value="4/4">4/4</option><option value="3/4">3/4</option>
             <option value="2/4">2/4</option><option value="6/8">6/8</option>
@@ -297,12 +297,12 @@
 
       <!-- Note Color -->
       <div class="toolbar-group" id="toolbar-note-color">
-        <span class="toolbar-group-label">Note Color</span>
+        <span class="toolbar-group-label">색깔음표</span>
         <div class="toolbar-controls-row">
-          <span class="tb-mini-label">Head</span>
+          <span class="tb-mini-label">음표 머리</span>
           <input type="color" id="note-head-color" value="#000000" class="tb-color" />
           <span id="note-head-color-hex" class="tb-val">#000000</span>
-          <span class="tb-mini-label">Stem</span>
+          <span class="tb-mini-label">음표 기둥</span>
           <input type="color" id="note-stem-color" value="#000000" class="tb-color" />
           <span id="note-stem-color-hex" class="tb-val">#000000</span>
         </div>
@@ -360,18 +360,18 @@
 
       <!-- Layout -->
       <div class="toolbar-group">
-        <span class="toolbar-group-label">Layout</span>
+        <span class="toolbar-group-label">레이아웃</span>
         <div class="toolbar-controls-row">
-          <span class="tb-mini-label">M/Line</span>
+          <span class="tb-mini-label">마디 개수</span>
           <input type="range" id="sl-measures-per-line" min="1" max="8" value="4" step="1" class="tb-slider" />
           <span class="tb-val" id="val-measures-per-line">4</span>
-          <span class="tb-mini-label">Staff Size</span>
+          <span class="tb-mini-label">악보 크기</span>
           <input type="range" id="sl-staff-scale" min="6" max="20" value="10" step="1" class="tb-slider" />
           <span class="tb-val" id="val-staff-scale">10</span>
-          <span class="tb-mini-label">Spacing</span>
+          <span class="tb-mini-label">악보 간격</span>
           <input type="range" id="sl-staff-spacing" min="80" max="240" value="130" step="5" class="tb-slider" />
           <span class="tb-val" id="val-staff-spacing">130</span>
-          <span class="tb-mini-label">Width</span>
+          <span class="tb-mini-label">마디 간격</span>
           <input type="range" id="sl-measure-width" min="120" max="400" value="200" step="10" class="tb-slider" />
           <span class="tb-val" id="val-measure-width">200</span>
           <span class="tb-mini-label">M.No</span>
