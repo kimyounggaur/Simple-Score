@@ -24,7 +24,7 @@
    ═══════════════════════════════════════════════════════════ */
 
 const VF = Vex.Flow;
-const { Renderer, Stave, StaveNote, Voice, Formatter, Dot, Accidental } = VF;
+const { Renderer, Stave, StaveNote, Voice, Formatter, Dot, Accidental, Tuplet } = VF;
 
 /* ═══════════════════════════════════════
    §1  STATE & CONSTANTS
@@ -34,6 +34,12 @@ const appState = {
   currentDuration : 'q',
   isRest          : false,
   isDotted        : false,
+  tupletMode      : false,
+  tupletNumNotes  : 3,
+  tupletNotesOccupied: 2,
+  tupletDraftId   : null,
+  tupletDraftCount: 0,
+  tupletNextId    : 1,
 
   timeSignature : '4/4',
   keySignature  : 'C',
@@ -127,6 +133,7 @@ const appState = {
 const DURATION_BEATS  = { w:4, h:2, q:1, '8':0.5, '16':0.25 };
 const DURATION_LABELS = { w:'𝅝 Whole', h:'𝅗𝅥 Half', q:'♩ Quarter', '8':'♪ 8th', '16':'𝅘𝅥𝅯 16th' };
 const NUM_TO_DURATION = { '7':'w', '6':'h', '5':'q', '4':'8', '3':'16' };
+const TUPLET_OCCUPIED_OPTIONS = new Set([2, 3, 4, 6, 8]);
 
 const STAVE_X       = 10;
 const STAVE_Y_START = 75;   // leaves room above stave for badges/brackets (VexFlow adds space_above internally)
@@ -384,6 +391,10 @@ const dom = {
   noteButtons : document.querySelectorAll('.note-buttons .tool-btn'),
   btnRest     : document.getElementById('btn-rest'),
   btnDot      : document.getElementById('btn-dot'),
+  btnTuplet   : document.getElementById('btn-tuplet'),
+  tupletCount : document.getElementById('tuplet-count'),
+  tupletOccupied : document.getElementById('tuplet-occupied'),
+  tupletProgress : document.getElementById('tuplet-progress'),
   keySig      : document.getElementById('key-sig-select'),
   timeSig     : document.getElementById('time-sig-select'),
   btnUndo     : document.getElementById('btn-undo'),
@@ -828,6 +839,11 @@ function getBeatsPerMeasure() {
 function noteBeatValue(n) {
   let b = DURATION_BEATS[n.duration] || 1;
   if (n.isDotted) b *= 1.5;
+  const tupletNum = Number(n.tupletNumNotes);
+  const tupletOccupied = Number(n.tupletNotesOccupied);
+  if (tupletNum > 0 && tupletOccupied > 0) {
+    b *= tupletOccupied / tupletNum;
+  }
   return b;
 }
 
@@ -936,6 +952,79 @@ function buildVexNotesForVoice(mNotes, voiceNum, cursorIdx, notesArr) {
   });
 }
 
+function buildTupletsForMeasure(mNotes, vexNotes, voiceNum) {
+  if (!Tuplet || !mNotes.length || !vexNotes.length) return [];
+
+  const tuplets = [];
+  let group = null;
+
+  function flushGroup() {
+    if (!group || group.vexNotes.length < 2) {
+      group = null;
+      return;
+    }
+
+    const options = {
+      num_notes: group.numNotes,
+      notes_occupied: group.notesOccupied,
+    };
+
+    if (Tuplet.LOCATION_TOP && Tuplet.LOCATION_BOTTOM) {
+      options.location = voiceNum === 0 ? Tuplet.LOCATION_TOP : Tuplet.LOCATION_BOTTOM;
+    }
+
+    try {
+      const tuplet = new Tuplet(group.vexNotes, options);
+      if (typeof tuplet.setBracketed === 'function') tuplet.setBracketed(true);
+      tuplets.push(tuplet);
+    } catch (error) {
+      console.warn('Tuplet render skipped:', error);
+    }
+
+    group = null;
+  }
+
+  mNotes.forEach((note, index) => {
+    if (!note.tupletId) {
+      flushGroup();
+      return;
+    }
+
+    const numNotes = normalizeTupletCount(note.tupletNumNotes);
+    const notesOccupied = normalizeTupletOccupied(note.tupletNotesOccupied);
+
+    if (
+      !group ||
+      group.id !== note.tupletId ||
+      group.numNotes !== numNotes ||
+      group.notesOccupied !== notesOccupied
+    ) {
+      flushGroup();
+      group = {
+        id: note.tupletId,
+        numNotes,
+        notesOccupied,
+        vexNotes: [],
+      };
+    }
+
+    group.vexNotes.push(vexNotes[index]);
+  });
+
+  flushGroup();
+  return tuplets;
+}
+
+function drawTuplets(tuplets, context) {
+  tuplets.forEach(tuplet => {
+    try {
+      tuplet.setContext(context).draw();
+    } catch (error) {
+      console.warn('Tuplet draw skipped:', error);
+    }
+  });
+}
+
 function renderScore() {
   /* Remove only SVG and ghost overlay — preserve chord/lyric input elements */
   dom.canvas.querySelectorAll('svg, #ghost-overlay').forEach(el => el.remove());
@@ -1024,6 +1113,8 @@ function renderScore() {
     const vexV2 = mV2Notes.length > 0
       ? buildVexNotesForVoice(mV2Notes, 1, appState.v2CursorIdx, appState.voice2Notes)
       : [];
+    const tupletsV1 = buildTupletsForMeasure(mNotes, vexV1, 0);
+    const tupletsV2 = buildTupletsForMeasure(mV2Notes, vexV2, 1);
 
     const formatW = Math.max(80, staveW - 40 - RIGHT_BARLINE_NOTE_PAD);
 
@@ -1058,6 +1149,8 @@ function renderScore() {
       new Formatter().joinVoices([v2]).format([v2], formatW);
       v2.draw(context, stave);
     }
+
+    drawTuplets([...tupletsV1, ...tupletsV2], context);
 
     vexV1.forEach((vn, vi) => {
       const bb = vn.getBoundingBox();
@@ -1938,6 +2031,45 @@ function hideGhost() {
    §9  SIMPLE ENTRY LOGIC
    ═══════════════════════════════════════ */
 
+function normalizeTupletCount(value) {
+  const count = Number.parseInt(value, 10);
+  if (!Number.isFinite(count)) return 3;
+  return Math.max(2, Math.min(12, count));
+}
+
+function normalizeTupletOccupied(value) {
+  const occupied = Number.parseInt(value, 10);
+  return TUPLET_OCCUPIED_OPTIONS.has(occupied) ? occupied : 2;
+}
+
+function resetTupletDraft() {
+  appState.tupletDraftId = null;
+  appState.tupletDraftCount = 0;
+  updateTupletControls();
+}
+
+function applyTupletToNote(noteData) {
+  if (!appState.tupletMode) return noteData;
+
+  if (!appState.tupletDraftId) {
+    appState.tupletDraftId = `tuplet-${appState.tupletNextId++}`;
+    appState.tupletDraftCount = 0;
+  }
+
+  noteData.tupletId = appState.tupletDraftId;
+  noteData.tupletNumNotes = normalizeTupletCount(appState.tupletNumNotes);
+  noteData.tupletNotesOccupied = normalizeTupletOccupied(appState.tupletNotesOccupied);
+
+  appState.tupletDraftCount += 1;
+  if (appState.tupletDraftCount >= noteData.tupletNumNotes) {
+    appState.tupletDraftId = null;
+    appState.tupletDraftCount = 0;
+  }
+
+  updateTupletControls();
+  return noteData;
+}
+
 function enterNoteAtCursor(pitch) {
   const notes = activeNotes();
   const ci    = activeCursor();
@@ -1945,6 +2077,7 @@ function enterNoteAtCursor(pitch) {
     keys: [pitch], duration: appState.currentDuration,
     isRest: appState.isRest, isDotted: appState.isDotted,
   };
+  applyTupletToNote(noteData);
 
   if (ci < notes.length) {
     notes[ci] = noteData;          // REPLACE
@@ -1962,6 +2095,7 @@ function deleteAtCursor() {
   const ci    = activeCursor();
   if (ci >= notes.length) return;
   notes.splice(ci, 1);
+  resetTupletDraft();
   setActiveCursor(Math.min(ci, notes.length));
   renderScore();
 }
@@ -2935,6 +3069,38 @@ async function exportToPDF() {
    §15  UI BINDINGS
    ═══════════════════════════════════════ */
 
+function updateTupletControls() {
+  if (dom.btnTuplet) dom.btnTuplet.classList.toggle('active', appState.tupletMode);
+  if (dom.tupletCount) dom.tupletCount.value = String(appState.tupletNumNotes);
+  if (dom.tupletOccupied) dom.tupletOccupied.value = String(appState.tupletNotesOccupied);
+  if (dom.tupletProgress) {
+    if (appState.tupletMode) {
+      const done = appState.tupletDraftCount || 0;
+      dom.tupletProgress.textContent = `${done}/${appState.tupletNumNotes}`;
+    } else {
+      dom.tupletProgress.textContent = 'Off';
+    }
+  }
+}
+
+function toggleTupletMode() {
+  appState.tupletMode = !appState.tupletMode;
+  resetTupletDraft();
+  updateStatusBar();
+}
+
+function setTupletCount(value) {
+  appState.tupletNumNotes = normalizeTupletCount(value);
+  resetTupletDraft();
+  updateStatusBar();
+}
+
+function setTupletOccupied(value) {
+  appState.tupletNotesOccupied = normalizeTupletOccupied(value);
+  resetTupletDraft();
+  updateStatusBar();
+}
+
 function setDuration(dur) {
   appState.currentDuration = dur;
   dom.noteButtons.forEach(b => b.classList.toggle('active', b.dataset.duration === dur));
@@ -2977,6 +3143,9 @@ function toggleSlur() {
 dom.noteButtons.forEach(btn => { btn.addEventListener('click', () => setDuration(btn.dataset.duration)); });
 dom.btnRest.addEventListener('click', toggleRest);
 dom.btnDot.addEventListener('click', toggleDot);
+dom.btnTuplet?.addEventListener('click', toggleTupletMode);
+dom.tupletCount?.addEventListener('change', () => setTupletCount(dom.tupletCount.value));
+dom.tupletOccupied?.addEventListener('change', () => setTupletOccupied(dom.tupletOccupied.value));
 dom.btnChord.addEventListener('click', toggleChordMode);
 dom.btnLyric.addEventListener('click', toggleLyricMode);
 
@@ -3354,6 +3523,7 @@ dom.btnUndo.addEventListener('click', () => {
   const notes = activeNotes();
   if (!notes.length) return;
   notes.pop();
+  resetTupletDraft();
   setActiveCursor(Math.min(activeCursor(), notes.length));
   if (appState.chordMode && appState.notes.length === 0) { appState.chordMode = false; dom.btnChord.classList.remove('active'); hideChordInput(); }
   if (appState.lyricMode && appState.notes.length === 0) { appState.lyricMode = false; dom.btnLyric.classList.remove('active'); hideLyricInput(); }
@@ -3363,6 +3533,7 @@ dom.btnClear.addEventListener('click', () => {
   if (!appState.notes.length && !appState.voice2Notes.length) return;
   appState.notes = []; appState.voice2Notes = [];
   appState.cursorIndex = 0; appState.v2CursorIdx = 0;
+  resetTupletDraft();
   appState.repeatMarkers  = {};
   appState.songFormLabels = {};
   if (appState.chordMode)  { appState.chordMode  = false; dom.btnChord.classList.remove('active'); hideChordInput(); }
@@ -3456,6 +3627,7 @@ function updateStatusBar() {
   let durLabel = DURATION_LABELS[appState.currentDuration] || '♩ Quarter';
   if (appState.isDotted) durLabel += ' ·';
   if (appState.isRest) durLabel += ' (Rest)';
+  if (appState.tupletMode) durLabel += ` Tuplet ${appState.tupletNumNotes}:${appState.tupletNotesOccupied}`;
   dom.statusDur.textContent = durLabel;
   const notes = activeNotes();
   const ci    = activeCursor();
@@ -3762,6 +3934,7 @@ document.getElementById('shortcuts-modal').addEventListener('click', (e) => {
    ═══════════════════════════════════════ */
 
 (async function init() {
+  updateTupletControls();
   renderScore();
   updateStatusBar();
   await loadInstrument(dom.instrument.value);

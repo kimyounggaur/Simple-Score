@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-export default function LogoutButton({ className, returnTo = "/auth" }) {
+export default function LogoutButton({ className, returnTo = "/" }) {
   const [pending, setPending] = useState(false);
 
   async function handleLogout() {

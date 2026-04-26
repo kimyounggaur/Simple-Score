@@ -599,6 +599,37 @@ input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.1); }
   padding: 2px 6px; border: 1px solid var(--border-light);
 }
 
+.tuplet-panel {
+  display: grid;
+  gap: 6px;
+}
+
+.tuplet-toggle .note-symbol {
+  font-weight: 700;
+}
+
+.tuplet-field {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.tuplet-field input,
+.tuplet-field select {
+  width: 100%;
+  min-height: 30px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 12px;
+  padding: 0 8px;
+}
+
 .setting-row { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
 .setting-row select { width: 100%; }
 

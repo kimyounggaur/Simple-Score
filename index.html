@@ -427,6 +427,29 @@
         </div>
       </div>
 
+      <div class="sidebar-section">
+        <h3 class="sidebar-title">Tuplet</h3>
+        <div class="tuplet-panel">
+          <button class="tool-btn tuplet-toggle" id="btn-tuplet" title="잇단음표 입력 켜기/끄기">
+            <span class="note-symbol">3</span><span class="note-label">잇단음표</span><kbd id="tuplet-progress">Off</kbd>
+          </button>
+          <label class="tuplet-field">
+            <span>개수</span>
+            <input id="tuplet-count" type="number" min="2" max="12" step="1" value="3" />
+          </label>
+          <label class="tuplet-field">
+            <span>종류</span>
+            <select id="tuplet-occupied">
+              <option value="2">2개 분량</option>
+              <option value="3">3개 분량</option>
+              <option value="4">4개 분량</option>
+              <option value="6">6개 분량</option>
+              <option value="8">8개 분량</option>
+            </select>
+          </label>
+        </div>
+      </div>
+
       <!-- Lyric Verse (가사 성부) -->
       <div class="sidebar-section">
         <h3 class="sidebar-title">가사 성부 (Lyric Verse)</h3>

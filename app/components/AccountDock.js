@@ -33,7 +33,7 @@ export default function AccountDock({ user, adminSetupRequired }) {
             <Link className={styles.secondary} href="/auth">
               계정 화면
             </Link>
-            <LogoutButton className={styles.logout} returnTo="/auth" />
+            <LogoutButton className={styles.logout} returnTo="/" />
           </>
         ) : (
           <>

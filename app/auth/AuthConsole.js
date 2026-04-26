@@ -260,7 +260,7 @@ export default function AuthConsole({
                         관리자 페이지
                       </Link>
                     ) : null}
-                    <LogoutButton className={styles.logoutAction} returnTo="/auth" />
+                    <LogoutButton className={styles.logoutAction} returnTo="/" />
                   </div>
                 </div>
               ) : (
