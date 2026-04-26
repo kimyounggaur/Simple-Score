@@ -64,6 +64,13 @@ export async function POST(request) {
     );
   }
 
+  if (loginType === "member" && user.role === "admin") {
+    return jsonResponse(
+      { error: "관리자 계정은 관리자 로그인으로 접속해 주세요." },
+      { status: 403 },
+    );
+  }
+
   if (loginType === "admin" && user.role !== "admin") {
     if (await hasAdminUser()) {
       return jsonResponse(
