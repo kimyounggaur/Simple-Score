@@ -419,6 +419,7 @@ const dom = {
   btnStemDown : document.getElementById('btn-stem-down'),
   btnStemAuto : document.getElementById('btn-stem-auto'),
   btnSlurRange: document.getElementById('btn-slur-range'),
+  btnChordDiagram: document.getElementById('btn-chord-diagram'),
   btnTuplet   : document.getElementById('btn-tuplet'),
   tupletCount : document.getElementById('tuplet-count'),
   tupletOccupied : document.getElementById('tuplet-occupied'),
@@ -665,6 +666,7 @@ function applyAccessLocks() {
       dom.metronomeBtn,
       dom.btnPNG,
       dom.lyricItalicToggle,
+      dom.btnChordDiagram,
       document.getElementById('btn-gap-mode'),
       document.getElementById('gap-panel-reset'),
       ...dom.repeatButtons,
@@ -3809,6 +3811,14 @@ dom.btnTuplet?.addEventListener('click', toggleTupletMode);
 dom.tupletCount?.addEventListener('change', () => setTupletCount(dom.tupletCount.value));
 dom.tupletOccupied?.addEventListener('change', () => setTupletOccupied(dom.tupletOccupied.value));
 dom.btnChord.addEventListener('click', toggleChordMode);
+dom.btnChordDiagram?.addEventListener('click', () => {
+  if (!requireFullToolsAccess()) return;
+  if (!appState.chordMode) {
+    toggleChordMode();
+  }
+  dom.btnChordDiagram.classList.add('active');
+  showAccessToast('코드도표 버튼이 표시되었습니다. 음표를 클릭해 코드 입력을 시작하세요.');
+});
 dom.btnLyric.addEventListener('click', toggleLyricMode);
 
 /* ── Repeat Mode ── */
