@@ -1576,10 +1576,10 @@ function renderScore() {
       if (bb.voice !== 0) return;                    // chords only on voice 1
       const note = appState.notes[bb.globalIndex];
       if (!note || !note.chord) return;
-      if (appState.showChordDiagrams && drawChordDiagramFromName(svg2, bb.x + bb.w / 2, bb.y - 16, note.chord)) return;
+      if (appState.showChordDiagrams && drawChordDiagramFromName(svg2, bb.x + bb.w / 2, bb.y - 46, note.chord)) return;
       const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
       txt.setAttribute('x', bb.x + bb.w / 2);
-      txt.setAttribute('y', bb.y - 14);
+      txt.setAttribute('y', bb.y - 36);
       txt.setAttribute('text-anchor', 'middle');
       txt.setAttribute('font-family', "'DM Sans', sans-serif");
       txt.setAttribute('font-size', '13');
@@ -2061,7 +2061,7 @@ function drawArticStaccatissimo(svg, bb, sls) {
 function strumCenterY(bb, sls) {
   const sc = _scForBB(bb);
   const staffTop = sc ? sc.stave.getYForLine(0) : bb.y;
-  return staffTop - Math.max(17, sls * 1.75);
+  return staffTop - Math.max(9, sls * 0.95);
 }
 
 function drawStrumDown(svg, bb, sls) {
@@ -2780,7 +2780,7 @@ function repositionChordInput() {
 
   /* Add canvas padding (20px left, 30px top) */
   dom.chordInput.style.left    = (20 + (bb.x + bb.w / 2)) + 'px';
-  dom.chordInput.style.top     = (30 + bb.y - 34) + 'px';
+  dom.chordInput.style.top     = (30 + bb.y - (appState.showChordDiagrams ? 78 : 54)) + 'px';
   dom.chordInput.style.display = 'block';
 }
 
