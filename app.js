@@ -1886,11 +1886,18 @@ function drawArticStaccatissimo(svg, bb, sls) {
   svg.appendChild(svgEl('rect', { x: cx - w/2, y: y0, width: w, height: h, rx: w/2, fill: '#000' }));
 }
 
+function strumCenterY(bb, sls) {
+  const sc = _scForBB(bb);
+  const staffTop = sc ? sc.stave.getYForLine(0) : bb.y;
+  return staffTop - Math.max(17, sls * 1.75);
+}
+
 function drawStrumDown(svg, bb, sls) {
   const cx = bb.x + bb.w / 2;
-  const topY = bb.y - Math.max(27, sls * 2.7);
   const w = Math.max(8, sls * 0.78);
   const h = Math.max(16, sls * 1.65);
+  const cy = strumCenterY(bb, sls);
+  const topY = cy - h / 2;
   const sw = Math.max(1.6, sls * 0.18);
 
   svg.append(
@@ -1902,9 +1909,10 @@ function drawStrumDown(svg, bb, sls) {
 
 function drawStrumUp(svg, bb, sls) {
   const cx = bb.x + bb.w / 2;
-  const topY = bb.y - Math.max(26, sls * 2.6);
   const w = Math.max(11, sls * 1.05);
   const h = Math.max(15, sls * 1.5);
+  const cy = strumCenterY(bb, sls);
+  const topY = cy - h / 2;
   const sw = Math.max(1.6, sls * 0.18);
 
   svg.append(
