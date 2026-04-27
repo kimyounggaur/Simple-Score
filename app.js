@@ -1576,10 +1576,13 @@ function renderScore() {
       if (bb.voice !== 0) return;                    // chords only on voice 1
       const note = appState.notes[bb.globalIndex];
       if (!note || !note.chord) return;
-      if (appState.showChordDiagrams && drawChordDiagramFromName(svg2, bb.x + bb.w / 2, bb.y - 46, note.chord)) return;
+      const _sc = _scForBB(bb);
+      const _staffTop = _sc ? _sc.stave.getYForLine(0) : bb.y;
+      const chordAnchorY = _staffTop - 20;           // consistent Y above top staff line
+      if (appState.showChordDiagrams && drawChordDiagramFromName(svg2, bb.x + bb.w / 2, chordAnchorY, note.chord)) return;
       const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
       txt.setAttribute('x', bb.x + bb.w / 2);
-      txt.setAttribute('y', bb.y - 36);
+      txt.setAttribute('y', chordAnchorY);
       txt.setAttribute('text-anchor', 'middle');
       txt.setAttribute('font-family', "'DM Sans', sans-serif");
       txt.setAttribute('font-size', '13');
