@@ -53,6 +53,7 @@ const appState = {
   /* ── Chord Symbol mode ── */
   chordMode      : false,   // true when chord entry mode is active
   chordEditIndex : -1,      // note index being edited
+  showChordDiagrams : false,
 
   /* ── Lyrics mode ── */
   lyricMode      : false,
@@ -151,6 +152,29 @@ const DURATION_BEATS  = { w:4, h:2, q:1, '8':0.5, '16':0.25 };
 const DURATION_LABELS = { w:'𝅝 Whole', h:'𝅗𝅥 Half', q:'♩ Quarter', '8':'♪ 8th', '16':'𝅘𝅥𝅯 16th' };
 const NUM_TO_DURATION = { '7':'w', '6':'h', '5':'q', '4':'8', '3':'16' };
 const TUPLET_OCCUPIED_OPTIONS = new Set([2, 3, 4, 6, 8]);
+
+const CHORD_DIAGRAMS = {
+  C:   { frets:[-1,3,2,0,1,0], fingers:[0,3,2,0,1,0] },
+  Cm:  { frets:[-1,3,5,5,4,3], fingers:[0,1,3,4,2,1], barre:{ fret:3, from:1, to:5 } },
+  C7:  { frets:[-1,3,2,3,1,0], fingers:[0,3,2,4,1,0] },
+  D:   { frets:[-1,-1,0,2,3,2], fingers:[0,0,0,1,3,2] },
+  Dm:  { frets:[-1,-1,0,2,3,1], fingers:[0,0,0,2,3,1] },
+  D7:  { frets:[-1,-1,0,2,1,2], fingers:[0,0,0,2,1,3] },
+  E:   { frets:[0,2,2,1,0,0], fingers:[0,2,3,1,0,0] },
+  Em:  { frets:[0,2,2,0,0,0], fingers:[0,2,3,0,0,0] },
+  E7:  { frets:[0,2,0,1,0,0], fingers:[0,2,0,1,0,0] },
+  F:   { frets:[1,3,3,2,1,1], fingers:[1,3,4,2,1,1], barre:{ fret:1, from:0, to:5 } },
+  Fm:  { frets:[1,3,3,1,1,1], fingers:[1,3,4,1,1,1], barre:{ fret:1, from:0, to:5 } },
+  F7:  { frets:[1,3,1,2,1,1], fingers:[1,3,1,2,1,1], barre:{ fret:1, from:0, to:5 } },
+  G:   { frets:[3,2,0,0,0,3], fingers:[3,2,0,0,0,4] },
+  Gm:  { frets:[3,5,5,3,3,3], fingers:[1,3,4,1,1,1], barre:{ fret:3, from:0, to:5 } },
+  G7:  { frets:[3,2,0,0,0,1], fingers:[3,2,0,0,0,1] },
+  A:   { frets:[-1,0,2,2,2,0], fingers:[0,0,1,2,3,0] },
+  Am:  { frets:[-1,0,2,2,1,0], fingers:[0,0,2,3,1,0] },
+  A7:  { frets:[-1,0,2,0,2,0], fingers:[0,0,2,0,3,0] },
+  Bm:  { frets:[-1,2,4,4,3,2], fingers:[0,1,3,4,2,1], barre:{ fret:2, from:1, to:5 } },
+  B7:  { frets:[-1,2,1,2,0,2], fingers:[0,2,1,3,0,4] },
+};
 
 const STAVE_X       = 10;
 const STAVE_Y_START = 75;   // leaves room above stave for badges/brackets (VexFlow adds space_above internally)
@@ -1552,6 +1576,7 @@ function renderScore() {
       if (bb.voice !== 0) return;                    // chords only on voice 1
       const note = appState.notes[bb.globalIndex];
       if (!note || !note.chord) return;
+      if (appState.showChordDiagrams && drawChordDiagramFromName(svg2, bb.x + bb.w / 2, bb.y - 16, note.chord)) return;
       const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
       txt.setAttribute('x', bb.x + bb.w / 2);
       txt.setAttribute('y', bb.y - 14);
@@ -1721,6 +1746,151 @@ function svgEl(tag, attrs) {
   const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
   for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, String(v));
   return el;
+}
+
+function normalizeChordName(name) {
+  return String(name || '')
+    .trim()
+    .replace(/\s+/g, '')
+    .replace(/maj/gi, '')
+    .replace(/min/gi, 'm')
+    .replace(/♯/g, '#')
+    .replace(/♭/g, 'b');
+}
+
+function getChordDiagram(name) {
+  const normalized = normalizeChordName(name);
+  return CHORD_DIAGRAMS[normalized] ? { name: normalized, ...CHORD_DIAGRAMS[normalized] } : null;
+}
+
+function drawChordDiagramFromName(svg, xCenter, yBottom, chordName) {
+  const diagram = getChordDiagram(chordName);
+  if (!diagram) return false;
+
+  const stringGap = 8;
+  const fretGap = 8;
+  const frets = 4;
+  const width = stringGap * 5;
+  const nameHeight = 11;
+  const indicatorHeight = 9;
+  const nutHeight = 3;
+  const height = nameHeight + indicatorHeight + nutHeight + frets * fretGap;
+  const xLeft = xCenter - width / 2;
+  const yTop = yBottom - height;
+  const yNut = yTop + nameHeight + indicatorHeight;
+  const yGridEnd = yNut + nutHeight + frets * fretGap;
+  const startFret = diagram.startFret || 1;
+
+  const group = svgEl('g', { class: 'chord-diagram-svg' });
+
+  const label = svgEl('text', {
+    x: xCenter,
+    y: yTop + 8,
+    'text-anchor': 'middle',
+    'font-family': "'DM Sans', sans-serif",
+    'font-size': 9,
+    'font-weight': 800,
+    fill: '#111827',
+  });
+  label.textContent = diagram.name;
+  group.appendChild(label);
+
+  for (let i = 0; i < 6; i++) {
+    const x = xLeft + i * stringGap;
+    const fret = diagram.frets[i] ?? -1;
+    const indicator = svgEl('text', {
+      x,
+      y: yTop + nameHeight + 7,
+      'text-anchor': 'middle',
+      'font-family': "'DM Sans', sans-serif",
+      'font-size': 7,
+      'font-weight': 700,
+      fill: '#111827',
+    });
+    indicator.textContent = fret === -1 ? 'x' : fret === 0 ? 'o' : '';
+    group.appendChild(indicator);
+  }
+
+  if (startFret === 1) {
+    group.appendChild(svgEl('rect', {
+      x: xLeft - 1,
+      y: yNut,
+      width: width + 2,
+      height: nutHeight,
+      fill: '#111827',
+      rx: 1,
+    }));
+  } else {
+    const fretLabel = svgEl('text', {
+      x: xLeft - 4,
+      y: yNut + fretGap * 0.75,
+      'text-anchor': 'end',
+      'font-family': "'DM Sans', sans-serif",
+      'font-size': 7,
+      fill: '#111827',
+    });
+    fretLabel.textContent = `${startFret}fr`;
+    group.appendChild(fretLabel);
+  }
+
+  for (let f = 0; f <= frets; f++) {
+    group.appendChild(svgEl('line', {
+      x1: xLeft,
+      y1: yNut + nutHeight + f * fretGap,
+      x2: xLeft + width,
+      y2: yNut + nutHeight + f * fretGap,
+      stroke: '#111827',
+      'stroke-width': f === 0 && startFret === 1 ? 0 : 0.8,
+    }));
+  }
+
+  for (let s = 0; s < 6; s++) {
+    const x = xLeft + s * stringGap;
+    group.appendChild(svgEl('line', {
+      x1: x,
+      y1: yNut,
+      x2: x,
+      y2: yGridEnd,
+      stroke: '#111827',
+      'stroke-width': 0.8,
+    }));
+  }
+
+  if (diagram.barre) {
+    const relFret = diagram.barre.fret - startFret;
+    if (relFret >= 0 && relFret < frets) {
+      const x1 = xLeft + diagram.barre.from * stringGap;
+      const x2 = xLeft + diagram.barre.to * stringGap;
+      const y = yNut + nutHeight + relFret * fretGap + fretGap / 2;
+      group.appendChild(svgEl('line', {
+        x1,
+        y1: y,
+        x2,
+        y2: y,
+        stroke: '#111827',
+        'stroke-width': 5,
+        'stroke-linecap': 'round',
+      }));
+    }
+  }
+
+  diagram.frets.forEach((fret, s) => {
+    if (fret <= 0) return;
+    const relFret = fret - startFret;
+    if (relFret < 0 || relFret >= frets) return;
+    if (diagram.barre && diagram.barre.fret === fret && s >= diagram.barre.from && s <= diagram.barre.to) return;
+    const x = xLeft + s * stringGap;
+    const y = yNut + nutHeight + relFret * fretGap + fretGap / 2;
+    group.appendChild(svgEl('circle', {
+      cx: x,
+      cy: y,
+      r: 2.7,
+      fill: '#111827',
+    }));
+  });
+
+  svg.appendChild(group);
+  return true;
 }
 
 /** Draw repeat-start barline ( |: ) at left edge of stave */
@@ -3813,11 +3983,10 @@ dom.tupletOccupied?.addEventListener('change', () => setTupletOccupied(dom.tuple
 dom.btnChord.addEventListener('click', toggleChordMode);
 dom.btnChordDiagram?.addEventListener('click', () => {
   if (!requireFullToolsAccess()) return;
-  if (!appState.chordMode) {
-    toggleChordMode();
-  }
-  dom.btnChordDiagram.classList.add('active');
-  showAccessToast('코드도표 버튼이 표시되었습니다. 음표를 클릭해 코드 입력을 시작하세요.');
+  appState.showChordDiagrams = !appState.showChordDiagrams;
+  dom.btnChordDiagram.classList.toggle('active', appState.showChordDiagrams);
+  renderScore();
+  updateStatusBar();
 });
 dom.btnLyric.addEventListener('click', toggleLyricMode);
 
@@ -4385,7 +4554,9 @@ function updateStatusBar() {
   }
 
   /* chord status */
-  if (appState.chordMode) {
+  if (appState.showChordDiagrams) {
+    dom.statusChord.textContent = '⊞ 코드도표 표시';
+  } else if (appState.chordMode) {
     dom.statusChord.textContent = '🎸 Chord Mode';
   } else if (ci < appState.notes.length && appState.notes[ci].chord) {
     dom.statusChord.textContent = 'Chord: ' + appState.notes[ci].chord;
