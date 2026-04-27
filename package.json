@@ -1,0 +1,17 @@
+{
+  "name": "lesson-designer-next",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --hostname 127.0.0.1 --port 3017",
+    "build": "next build",
+    "start": "next start --hostname 127.0.0.1 --port 3017",
+    "start:prod": "next start --hostname 0.0.0.0 --port 3017"
+  },
+  "dependencies": {
+    "next": "^16.2.4",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "stripe": "^22.1.0"
+  }
+}

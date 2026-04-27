@@ -1,0 +1,134 @@
+.page {
+  min-height: 100vh;
+  padding: 32px 20px;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at top left, rgba(16, 185, 129, 0.12), transparent 28%),
+    linear-gradient(180deg, #f8fafc 0%, #ecfeff 100%);
+}
+
+.panel {
+  width: min(560px, 100%);
+  padding: 28px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.1);
+}
+
+.eyebrow {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0f766e;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.title {
+  margin: 10px 0 8px;
+  font-size: 32px;
+  line-height: 1.15;
+  color: #0f172a;
+}
+
+.text {
+  margin: 0;
+  color: #475569;
+  line-height: 1.7;
+}
+
+.form {
+  margin-top: 22px;
+  display: grid;
+  gap: 14px;
+}
+
+.field {
+  display: grid;
+  gap: 8px;
+}
+
+.label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.input {
+  height: 46px;
+  padding: 0 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  font-size: 14px;
+}
+
+.input:focus {
+  outline: none;
+  border-color: #0f766e;
+  box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.12);
+}
+
+.error {
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: #fff1f2;
+  color: #be123c;
+  font-size: 14px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.submit,
+.linkButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.submit {
+  background: #0f172a;
+  color: #ffffff;
+}
+
+.linkButton {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.notes {
+  margin-top: 20px;
+  padding: 16px;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #334155;
+  line-height: 1.6;
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding: 20px 14px;
+  }
+
+  .panel {
+    padding: 22px;
+  }
+
+  .title {
+    font-size: 26px;
+  }
+}

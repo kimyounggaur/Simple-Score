@@ -1,0 +1,6 @@
+node_modules/
+.next/
+data/
+*.log
+*.err.log
+tmp-simple-score-commit/
