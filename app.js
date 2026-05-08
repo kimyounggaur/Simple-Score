@@ -131,6 +131,7 @@ const appState = {
   /* ── Voice Part (성부) ── */
   voice2Notes      : [],   // notes for voice 2 (stems down, blue)
   currentVoice     : 0,    // 0 = voice 1, 1 = voice 2
+  voicePartModeActive: false,
   v2CursorIdx      : 0,    // cursor index for voice 2
   selectedNoteVoice: 0,    // voice of currently dragged/selected note
 
@@ -1224,7 +1225,12 @@ function buildVexDuration(n) {
   return d;
 }
 
+function isVoicePartModeActive() {
+  return appState.voicePartModeActive || appState.currentVoice === 1 || appState.voice2Notes.length > 0;
+}
+
 function getNoteStemDirection(note, voiceNum) {
+  if (isVoicePartModeActive()) return voiceNum === 0 ? 1 : -1;
   if (note?.stemDirection === 'up') return 1;
   if (note?.stemDirection === 'down') return -1;
   if (note?.keys?.[0] && !note.isRest) return getAutoStemDirectionForPitch(note.keys[0]);
@@ -4236,6 +4242,7 @@ function switchVoice(v) {
     appState.selectedNoteIndex = -1;
     dom.canvas.classList.remove('cursor-grabbing');
   }
+  appState.voicePartModeActive = true;
   appState.currentVoice = v;
   document.querySelectorAll('.voice-btn').forEach(b =>
     b.classList.toggle('active', Number(b.dataset.voice) === v));
