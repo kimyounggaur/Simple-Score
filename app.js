@@ -649,6 +649,88 @@ function lockMenuAccess(element, message) {
   );
 }
 
+const CONTROL_TOOLTIP_LABELS = {
+  'key-sig-select': '조성',
+  'time-sig-select': '박자',
+  'note-head-color': '음표 머리 색상',
+  'note-stem-color': '음표 기둥 색상',
+  'lyric-font': '가사 글꼴',
+  'lyric-size': '가사 크기',
+  'lyric-offset': '가사 위치',
+  'lyric-weight': '가사 굵기',
+  'lyric-italic-toggle': '가사 기울임',
+  'lyric-color': '가사 색상',
+  'sl-measures-per-line': '한 줄 마디 수',
+  'sl-staff-scale': '악보 크기',
+  'sl-staff-spacing': '악보 간격',
+  'sl-measure-width': '마디 간격',
+  'toggle-measure-numbers': '마디 번호 표시',
+  'btn-gap-mode': '마디 사이 간격 조정',
+  'tuplet-count': '잇단음표 개수',
+  'tuplet-occupied': '잇단음표 종류',
+  'gap-panel-slider': '마디 사이 간격',
+  'gap-panel-number': '마디 사이 간격 숫자 입력',
+  'gap-panel-reset': '마디 사이 간격 초기화',
+  'bpm-slider': 'BPM',
+  'instrument-select': '악기',
+  'metronome-bpm-slider': '메트로놈 BPM',
+  'metronome-bpm-input': '메트로놈 BPM 숫자 입력',
+  'metronome-sound-select': '메트로놈 소리',
+};
+
+function normalizeTooltipText(text) {
+  return (text || '').replace(/\s+/g, ' ').trim();
+}
+
+function getControlTooltipText(control) {
+  if (!control) return '';
+
+  const explicit = CONTROL_TOOLTIP_LABELS[control.id];
+  if (explicit) return explicit;
+
+  const ariaLabel = control.getAttribute('aria-label');
+  if (ariaLabel) return ariaLabel;
+
+  if (control.id && window.CSS?.escape) {
+    const label = document.querySelector(`label[for="${CSS.escape(control.id)}"]`);
+    const labelText = normalizeTooltipText(label?.textContent);
+    if (labelText) return labelText;
+  }
+
+  const wrappedLabel = control.closest('label');
+  const wrappedLabelText = normalizeTooltipText(wrappedLabel?.textContent);
+  if (wrappedLabelText) return wrappedLabelText;
+
+  const buttonText = normalizeTooltipText(control.textContent);
+  if (buttonText) return buttonText;
+
+  const value = normalizeTooltipText(control.value);
+  return value;
+}
+
+function applyControlTooltips(root = document) {
+  const controls = root.querySelectorAll([
+    'button',
+    'select',
+    'input[type="range"]',
+    'input[type="number"]',
+    'input[type="color"]',
+    'input[type="checkbox"]',
+  ].join(','));
+
+  controls.forEach((control) => {
+    if (normalizeTooltipText(control.title)) return;
+
+    const tooltipText = getControlTooltipText(control);
+    if (!tooltipText) return;
+
+    control.title = tooltipText;
+    if (!control.getAttribute('aria-label') && !control.id?.startsWith('mb-check-')) {
+      control.setAttribute('aria-label', tooltipText);
+    }
+  });
+}
+
 function applyAccessLocks() {
   if (!hasPdfAccess()) {
     const pdfMessage = getAccessMessage('pdf');
@@ -733,6 +815,7 @@ function applyAccessLocks() {
    §3  AUDIO ENGINE
    ═══════════════════════════════════════ */
 
+applyControlTooltips();
 applyAccessLocks();
 
 function getAudioCtx() {
