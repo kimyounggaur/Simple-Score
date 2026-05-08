@@ -71,7 +71,7 @@ export default function SetupAdminForm() {
   return (
     <main className={styles.page}>
       <section className={styles.panel}>
-        <div className={styles.eyebrow}>Administrator Bootstrap</div>
+        <div className={styles.eyebrow}>관리자 초기 설정</div>
         <h1 className={styles.title}>첫 관리자 계정을 생성합니다.</h1>
         <p className={styles.text}>
           이 단계는 한 번만 열립니다. 생성된 계정은 관리자 페이지 접근, 가입자 조회, 운영 보안 점검에 사용됩니다.

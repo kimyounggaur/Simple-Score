@@ -185,8 +185,8 @@ export default async function AdminPage() {
           <div className={styles.setupSteps}>
             <h3 className={styles.stepTitle}>연결 순서</h3>
             <ol className={styles.stepList}>
-              <li>Stripe Dashboard에서 상품과 월간 가격을 만들고 Price ID를 복사합니다.</li>
-              <li>Render 환경변수에 비밀키와 Price ID, 앱 URL을 입력합니다.</li>
+                <li>Stripe 대시보드에서 상품과 월간 가격을 만들고 가격 ID를 복사합니다.</li>
+                <li>Render 환경변수에 비밀키와 가격 ID, 앱 URL을 입력합니다.</li>
               <li>
                 Stripe Webhook endpoint를{" "}
                 <code className={styles.inlineCode}>
@@ -328,7 +328,7 @@ export default async function AdminPage() {
                                 </dd>
                               </div>
                               <div className={styles.detailItem}>
-                                <dt>Price ID</dt>
+                                <dt>가격 ID</dt>
                                 <dd className={styles.monoValue}>
                                   {formatText(user.stripePriceId)}
                                 </dd>

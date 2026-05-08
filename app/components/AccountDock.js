@@ -9,7 +9,7 @@ function roleLabel(role) {
 export default function AccountDock({ user, adminSetupRequired }) {
   return (
     <aside className={styles.dock}>
-      <div className={styles.eyebrow}>Secure Access</div>
+      <div className={styles.eyebrow}>보안 접속</div>
       <h2 className={styles.title}>
         {user ? `${user.name} 님으로 로그인됨` : "로그인이 필요합니다"}
       </h2>

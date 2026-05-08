@@ -149,7 +149,7 @@ const appState = {
 };
 
 const DURATION_BEATS  = { w:4, h:2, q:1, '8':0.5, '16':0.25 };
-const DURATION_LABELS = { w:'𝅝 Whole', h:'𝅗𝅥 Half', q:'♩ Quarter', '8':'♪ 8th', '16':'𝅘𝅥𝅯 16th' };
+const DURATION_LABELS = { w:'𝅝 온음표', h:'𝅗𝅥 2분음표', q:'♩ 4분음표', '8':'♪ 8분음표', '16':'𝅘𝅥𝅯 16분음표' };
 const NUM_TO_DURATION = { '7':'w', '6':'h', '5':'q', '4':'8', '3':'16' };
 const TUPLET_OCCUPIED_OPTIONS = new Set([2, 3, 4, 6, 8]);
 
@@ -181,16 +181,16 @@ const STAVE_Y_START = 75;   // leaves room above stave for badges/brackets (VexF
 
 /* ── Song Form: display names & badge colors ── */
 const FORM_DISPLAY = {
-  'intro'      : 'Intro',
-  'verse'      : 'Verse',
-  'pre-chorus' : 'Pre-Ch',
-  'chorus'     : 'Chorus',
-  'interlude'  : 'Interlude',
-  'bridge'     : 'Bridge',
-  'climax'     : 'Climax',
-  'outro'      : 'Outro',
-  'fade-in'    : 'Fade In',
-  'fade-out'   : 'Fade Out',
+  'intro'      : '인트로',
+  'verse'      : '벌스',
+  'pre-chorus' : '프리코러스',
+  'chorus'     : '코러스',
+  'interlude'  : '간주',
+  'bridge'     : '브리지',
+  'climax'     : '클라이맥스',
+  'outro'      : '아웃트로',
+  'fade-in'    : '페이드 인',
+  'fade-out'   : '페이드 아웃',
 };
 const FORM_COLORS = {
   'intro'      : { bg:'#e8f0fe', stroke:'#4285f4', text:'#1a73e8' },
@@ -222,11 +222,11 @@ const REPEAT_DEFS = {
 
 /* ── Articulation definitions ── */
 const ARTICULATION_DEFS = {
-  'staccato'      : { label: '· Staccato'      },
-  'accent'        : { label: '> Accent'        },
-  'tenuto'        : { label: '— Tenuto'        },
-  'marcato'       : { label: '^ Marcato'       },
-  'staccatissimo' : { label: '▾ Staccatissimo' },
+  'staccato'      : { label: '· 스타카토'      },
+  'accent'        : { label: '> 악센트'        },
+  'tenuto'        : { label: '— 테누토'        },
+  'marcato'       : { label: '^ 마르카토'       },
+  'staccatissimo' : { label: '▾ 스타카티시모' },
 };
 
 /* ── Dynamics definitions ── */
@@ -348,11 +348,11 @@ function showTransposeModal(oldKey, newKey) {
 
   backdrop.innerHTML = `
     <div class="transpose-modal">
-      <h3>Key Change — Transpose?</h3>
+      <h3>조 변경 - 조옮김</h3>
       <div class="key-change-badge">
-        <span>${oldKey} Major</span>
+        <span>${oldKey} 장조</span>
         <span class="arrow-icon">→</span>
-        <span>${newKey} Major</span>
+        <span>${newKey} 장조</span>
       </div>
       <p class="modal-sub">
         기존에 입력된 음표들을 새로운 조에 맞춰 조옮김할 방법을 선택하세요.
@@ -361,21 +361,21 @@ function showTransposeModal(oldKey, newKey) {
         <button class="modal-btn" data-dir="up">
           <span class="btn-icon">⬆</span>
           <div>
-            <div>위로 조옮김 (Up)</div>
+            <div>위로 조옮김</div>
             <div class="btn-desc">+${semitoneUp} 반음 — 음표를 높은 쪽으로 이동</div>
           </div>
         </button>
         <button class="modal-btn" data-dir="down">
           <span class="btn-icon">⬇</span>
           <div>
-            <div>아래로 조옮김 (Down)</div>
+            <div>아래로 조옮김</div>
             <div class="btn-desc">${semitoneDown} 반음 — 음표를 낮은 쪽으로 이동</div>
           </div>
         </button>
         <button class="modal-btn primary" data-dir="none">
           <span class="btn-icon">━</span>
           <div>
-            <div>조옮김 없음 (No Transpose)</div>
+            <div>조옮김 없음</div>
             <div class="btn-desc">조표만 변경하고 음표 높이는 그대로 유지</div>
           </div>
         </button>
@@ -2337,8 +2337,8 @@ function drawAllRepeatMarkers(svg) {
     const textY = top - 6;
     if (m['da-capo'])        drawEndText(svg, 'D.C.',          endX - 4, textY, sls);
     else if (m['dal-segno']) drawEndText(svg, 'D.S.',          endX - 4, textY, sls);
-    else if (m['ds-al-coda'])drawEndText(svg, 'D.S. al Coda', endX - 4, textY, sls);
-    else if (m['fine'])      drawEndText(svg, 'Fine',          endX - 4, textY, sls);
+  else if (m['ds-al-coda'])drawEndText(svg, 'D.S. 알 코다', endX - 4, textY, sls);
+  else if (m['fine'])      drawEndText(svg, '피네',          endX - 4, textY, sls);
   });
 
   /* Volta brackets — group consecutive same-row measures */
@@ -3799,7 +3799,7 @@ function updateTupletControls() {
       const done = appState.tupletDraftCount || 0;
       dom.tupletProgress.textContent = `${done}/${appState.tupletNumNotes}`;
     } else {
-      dom.tupletProgress.textContent = 'Off';
+      dom.tupletProgress.textContent = '끔';
     }
   }
 }
@@ -4540,18 +4540,18 @@ dom.noteStemColor.addEventListener('input', () => {
    ═══════════════════════════════════════ */
 
 function updateStatusBar() {
-  let durLabel = DURATION_LABELS[appState.currentDuration] || '♩ Quarter';
+  let durLabel = DURATION_LABELS[appState.currentDuration] || '♩ 4분음표';
   if (appState.isDotted) durLabel += ' ·';
-  if (appState.isRest) durLabel += ' (Rest)';
-  if (appState.tupletMode) durLabel += ` Tuplet ${appState.tupletNumNotes}:${appState.tupletNotesOccupied}`;
+  if (appState.isRest) durLabel += ' (쉼표)';
+  if (appState.tupletMode) durLabel += ` 잇단음표 ${appState.tupletNumNotes}:${appState.tupletNotesOccupied}`;
   dom.statusDur.textContent = durLabel;
   const notes = activeNotes();
   const ci    = activeCursor();
   const vLabel = appState.currentVoice === 0 ? 'V1' : 'V2';
-  dom.statusPos.textContent = `${vLabel} Pos: ${ci + 1} / ${notes.length + 1}`;
+  dom.statusPos.textContent = `${vLabel} 위치: ${ci + 1} / ${notes.length + 1}`;
   if (ci < notes.length) {
     const n = notes[ci];
-    dom.statusPitch.textContent = n.isRest ? 'Rest' : n.keys[0].replace('/', '').toUpperCase();
+    dom.statusPitch.textContent = n.isRest ? '쉼표' : n.keys[0].replace('/', '').toUpperCase();
   } else {
     dom.statusPitch.textContent = '—';
   }
@@ -4560,61 +4560,61 @@ function updateStatusBar() {
   if (appState.showChordDiagrams) {
     dom.statusChord.textContent = '⊞ 코드도표 표시';
   } else if (appState.chordMode) {
-    dom.statusChord.textContent = '🎸 Chord Mode';
+    dom.statusChord.textContent = '🎸 코드 입력 모드';
   } else if (ci < appState.notes.length && appState.notes[ci].chord) {
-    dom.statusChord.textContent = 'Chord: ' + appState.notes[ci].chord;
+    dom.statusChord.textContent = '코드: ' + appState.notes[ci].chord;
   } else {
     dom.statusChord.textContent = '';
   }
 
   /* lyric / repeat / articulation / dynamics status */
   if (appState.selectedNotes.length) {
-    dom.statusLyric.textContent = `Selected ${appState.selectedNotes.length} notes · S: Slur`;
+    dom.statusLyric.textContent = `선택 ${appState.selectedNotes.length}개 · S: 이음줄`;
   } else if (appState.lyricMode) {
-    dom.statusLyric.textContent = '✏️ Lyric Mode';
+    dom.statusLyric.textContent = '✏️ 가사 입력 모드';
   } else if (appState.dynamicsMode && appState.dynamicsSelected) {
-    dom.statusLyric.textContent = '𝆑 Dynamics: ' + appState.dynamicsSelected + ' — click a note';
+    dom.statusLyric.textContent = '𝆑 셈여림: ' + appState.dynamicsSelected + ' - 음표를 클릭하세요';
   } else if (appState.articulationMode && appState.articulationSelected) {
     const aLabels = {
-      'staccato':      '· Staccato',
-      'accent':        '> Accent',
-      'tenuto':        '— Tenuto',
-      'marcato':       '^ Marcato',
-      'staccatissimo': '▾ Staccatissimo',
+      'staccato':      '· 스타카토',
+      'accent':        '> 악센트',
+      'tenuto':        '— 테누토',
+      'marcato':       '^ 마르카토',
+      'staccatissimo': '▾ 스타카티시모',
     };
-    dom.statusLyric.textContent = '🎵 Artic: ' + (aLabels[appState.articulationSelected] || '') + ' — click a note';
+    dom.statusLyric.textContent = '🎵 아티큘레이션: ' + (aLabels[appState.articulationSelected] || '') + ' - 음표를 클릭하세요';
   } else if (appState.strumMode && appState.strumSelected) {
     const sLabels = {
       down: '다운 스트럼',
       up: '업 스트럼',
     };
-    dom.statusLyric.textContent = 'Strum: ' + (sLabels[appState.strumSelected] || '') + ' — click a note/rest';
+    dom.statusLyric.textContent = '스트럼: ' + (sLabels[appState.strumSelected] || '') + ' - 음표나 쉼표를 클릭하세요';
   } else if (appState.repeatMode && appState.repeatSelected) {
     const repeatLabels = {
-      'repeat-start': '|: Repeat Start',  'repeat-end': 'Repeat End :|',
-      'segno':        '𝄋 Segno',          'coda':       '𝄌 Coda',
+      'repeat-start': '|: 반복 시작',      'repeat-end': '반복 끝 :|',
+      'segno':        '𝄋 세뇨',           'coda':       '𝄌 코다',
       'da-capo':      'D.C.',             'dal-segno':  'D.S.',
-      'ds-al-coda':   'D.S. al Coda',     'fine':       'Fine',
-      'volta-1':      '1st Ending [ ]',   'volta-2':    '2nd Ending [ ]',
-      'fermata':      '𝄐 Fermata — click a note',
+      'ds-al-coda':   'D.S. 알 코다',      'fine':       '피네',
+      'volta-1':      '1번 엔딩 [ ]',     'volta-2':    '2번 엔딩 [ ]',
+      'fermata':      '𝄐 페르마타 - 음표를 클릭하세요',
     };
     const rLabel = repeatLabels[appState.repeatSelected] || appState.repeatSelected;
-    const suffix = REPEAT_DEFS[appState.repeatSelected]?.type === 'note' ? '' : ' — click a measure';
-    dom.statusLyric.textContent = '🎼 Repeat: ' + rLabel + suffix;
+    const suffix = REPEAT_DEFS[appState.repeatSelected]?.type === 'note' ? '' : ' - 마디를 클릭하세요';
+    dom.statusLyric.textContent = '🎼 반복: ' + rLabel + suffix;
   } else if (appState.songFormMode && appState.songFormSelected) {
-    dom.statusLyric.textContent = '♬ Form: ' + (FORM_DISPLAY[appState.songFormSelected] || appState.songFormSelected) + ' — click a measure';
+    dom.statusLyric.textContent = '♬ 곡 형식: ' + (FORM_DISPLAY[appState.songFormSelected] || appState.songFormSelected) + ' - 마디를 클릭하세요';
   } else if (ci < notes.length && (notes[ci].tie || notes[ci].slur)) {
     const marks = [];
-    if (notes[ci].tie)  marks.push('붙임줄(Tie)');
-    if (notes[ci].slur) marks.push('이음줄(Slur)');
+    if (notes[ci].tie)  marks.push('붙임줄');
+    if (notes[ci].slur) marks.push('이음줄');
     dom.statusLyric.textContent = marks.join(' + ');
   } else if (ci < notes.length && notes[ci].beamBreakAfter) {
-    dom.statusLyric.textContent = 'Beam Break';
+    dom.statusLyric.textContent = '빔 끊김';
   } else if (ci < notes.length && notes[ci].stemDirection) {
-    dom.statusLyric.textContent = `Stem ${notes[ci].stemDirection === 'up' ? 'Up' : 'Down'}`;
+    dom.statusLyric.textContent = `기둥 ${notes[ci].stemDirection === 'up' ? '위로' : '아래로'}`;
   } else if (ci < appState.notes.length && appState.notes[ci].lyrics && appState.notes[ci].lyrics.some(Boolean)) {
     const parts = appState.notes[ci].lyrics.map((l, i) => l ? `V${i + 1}: ${l}` : null).filter(Boolean);
-    dom.statusLyric.textContent = 'Lyric: ' + parts.join(' | ');
+    dom.statusLyric.textContent = '가사: ' + parts.join(' | ');
   } else {
     dom.statusLyric.textContent = '';
   }
