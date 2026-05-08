@@ -1396,24 +1396,28 @@ function isBeamableNote(note) {
   return note && !note.isRest && (note.duration === '8' || note.duration === '16');
 }
 
+const BEAM_GROUP_SIZE = 4;
+
 function buildBeamsForMeasure(mNotes, vexNotes) {
   if (!Beam || !mNotes.length || !vexNotes.length) return [];
 
   const beams = [];
   let group = [];
   let groupDirection = null;
+  let groupDuration = null;
 
   function flushGroup() {
-    if (group.length > 1) {
+    if (group.length === BEAM_GROUP_SIZE) {
       try {
         const options = groupDirection ? { stem_direction: groupDirection } : undefined;
-        beams.push(new Beam(group, options));
+        beams.push(new Beam(group.map(entry => entry.vexNote), options));
       } catch (error) {
         console.warn('Beam render skipped:', error);
       }
     }
     group = [];
     groupDirection = null;
+    groupDuration = null;
   }
 
   mNotes.forEach((note, index) => {
@@ -1423,13 +1427,17 @@ function buildBeamsForMeasure(mNotes, vexNotes) {
     }
 
     const stemDirection = vexNotes[index]?.getStemDirection?.() || null;
-    if (groupDirection !== null && stemDirection !== groupDirection) {
+    if (
+      groupDirection !== null &&
+      (stemDirection !== groupDirection || note.duration !== groupDuration)
+    ) {
       flushGroup();
     }
     groupDirection = stemDirection;
-    group.push(vexNotes[index]);
+    groupDuration = note.duration;
+    group.push({ vexNote: vexNotes[index] });
 
-    if (note.beamBreakAfter) {
+    if (group.length === BEAM_GROUP_SIZE || note.beamBreakAfter) {
       flushGroup();
     }
   });
