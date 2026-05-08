@@ -287,6 +287,12 @@ function pitchToSemitone(pitch) {
   return semi + (Number(octStr) + 1) * 12;
 }
 
+const AUTO_STEM_UP_FROM_SEMITONE = pitchToSemitone('c/5');
+
+function getAutoStemDirectionForPitch(pitch) {
+  return pitchToSemitone(pitch) >= AUTO_STEM_UP_FROM_SEMITONE ? 1 : -1;
+}
+
 /**
  * Convert an absolute semitone number back to a VexFlow pitch string,
  * using the appropriate enharmonic spelling for the target key.
@@ -1221,6 +1227,7 @@ function buildVexDuration(n) {
 function getNoteStemDirection(note, voiceNum) {
   if (note?.stemDirection === 'up') return 1;
   if (note?.stemDirection === 'down') return -1;
+  if (note?.keys?.[0] && !note.isRest) return getAutoStemDirectionForPitch(note.keys[0]);
   return voiceNum === 0 ? 1 : -1;
 }
 
@@ -1261,7 +1268,8 @@ function rescaleTimeSig(stave, staffLineSpacing) {
 
 /**
  * Build an array of VexFlow StaveNote objects for one voice in one measure.
- * voiceNum: 0 = Voice 1 (stems up, user noteColor), 1 = Voice 2 (stems down, V2_COLOR)
+ * voiceNum: 0 = Voice 1, 1 = Voice 2. Automatic stems follow pitch:
+ * C5 and above point up; B4/A#4 and below point down.
  */
 function buildVexNotesForVoice(mNotes, voiceNum, cursorIdx, notesArr) {
   return mNotes.map(n => {
@@ -2497,6 +2505,7 @@ let _ghostSvg       = null;   // <svg> inside overlay
 let _ghostGroup     = null;   // <g> containing note shapes
 let _ghostBuiltKey  = '';     // tracks what shape is currently built
 let _ghostPitchIdx  = -1;     // last snapped pitch index (to avoid redundant updates)
+let _ghostStemDirection = 1;   // 1 = up, -1 = down
 
 /**
  * Ensure the ghost overlay exists inside dom.canvas.
@@ -2574,9 +2583,11 @@ function buildGhostShapes() {
 
     /* ── Stem (not for whole notes) ── */
     if (dur !== 'w') {
+      const stemDir = _ghostStemDirection;
+      const stemX = stemDir === 1 ? 6 : -6;
       const stem = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-      stem.setAttribute('x1', '6');  stem.setAttribute('y1', '-2');
-      stem.setAttribute('x2', '6');  stem.setAttribute('y2', '-36');
+      stem.setAttribute('x1', stemX);  stem.setAttribute('y1', stemDir === 1 ? '-2' : '2');
+      stem.setAttribute('x2', stemX);  stem.setAttribute('y2', stemDir === 1 ? '-36' : '36');
       stem.setAttribute('stroke', color);
       stem.setAttribute('stroke-width', '1.4');
       _ghostGroup.appendChild(stem);
@@ -2585,14 +2596,18 @@ function buildGhostShapes() {
     /* ── Flags ── */
     if (dur === '8' || dur === '16') {
       const f1 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      f1.setAttribute('d', 'M6,-36 C11,-28 15,-21 9,-15');
+      f1.setAttribute('d', _ghostStemDirection === 1
+        ? 'M6,-36 C11,-28 15,-21 9,-15'
+        : 'M-6,36 C-11,28 -15,21 -9,15');
       f1.setAttribute('stroke', color); f1.setAttribute('fill', 'none');
       f1.setAttribute('stroke-width', '1.5');
       _ghostGroup.appendChild(f1);
     }
     if (dur === '16') {
       const f2 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      f2.setAttribute('d', 'M6,-29 C11,-21 15,-14 9,-8');
+      f2.setAttribute('d', _ghostStemDirection === 1
+        ? 'M6,-29 C11,-21 15,-14 9,-8'
+        : 'M-6,29 C-11,21 -15,14 -9,8');
       f2.setAttribute('stroke', color); f2.setAttribute('fill', 'none');
       f2.setAttribute('stroke-width', '1.5');
       _ghostGroup.appendChild(f2);
@@ -2607,7 +2622,7 @@ function buildGhostShapes() {
     }
   }
 
-  _ghostBuiltKey = `${dur}|${isRest}|${appState.isDotted}`;
+  _ghostBuiltKey = `${dur}|${isRest}|${appState.isDotted}|${_ghostStemDirection}`;
 }
 
 /**
@@ -2617,10 +2632,6 @@ function buildGhostShapes() {
 function updateGhost(mx, my) {
   if (!_ghostGroup) return;
 
-  /* rebuild shapes if duration/rest/dot changed */
-  const key = `${appState.currentDuration}|${appState.isRest}|${appState.isDotted}`;
-  if (_ghostBuiltKey !== key) buildGhostShapes();
-
   /* which stave row? */
   const sc = getStaveForY(my);
   if (!sc) { hideGhost(); return; }
@@ -2629,7 +2640,12 @@ function updateGhost(mx, my) {
   if (!appState.isRest) {
     const pitch = calculatePitchFromY(my, sc.stave);
     _ghostPitchIdx = pitchToIndex(pitch);
+    _ghostStemDirection = getAutoStemDirectionForPitch(pitch);
   }
+
+  /* rebuild shapes if duration/rest/dot/stem direction changed */
+  const key = `${appState.currentDuration}|${appState.isRest}|${appState.isDotted}|${_ghostStemDirection}`;
+  if (_ghostBuiltKey !== key) buildGhostShapes();
 
   /* ghost follows the mouse cursor center exactly */
   _ghostGroup.setAttribute('transform', `translate(${mx}, ${my})`);
