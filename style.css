@@ -54,6 +54,13 @@ html, body {
 }
 
 /* ─── Menu Bar ─── */
+.svg-symbols {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
 #menu-bar {
   height: var(--menubar-h);
   background: rgba(10,10,12,0.97);
@@ -75,7 +82,7 @@ html, body {
 }
 
 .mb-item > span {
-  padding: 0 10px;
+  padding: 0 9px;
   font-size: 13px;
   font-weight: 400;
   color: rgba(255,255,255,0.85);
@@ -83,12 +90,31 @@ html, body {
   height: 100%;
   display: flex;
   align-items: center;
+  gap: 5px;
   border-radius: 4px;
   transition: background 0.1s;
   white-space: nowrap;
 }
 .mb-item > span:hover,
 .mb-item.open > span { background: rgba(255,255,255,0.12); }
+
+.mb-icon {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 13px;
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.82;
+}
+
+.mb-item > span:hover .mb-icon,
+.mb-item.open > span .mb-icon {
+  opacity: 1;
+}
 
 /* Dropdown panel */
 .mb-dropdown {

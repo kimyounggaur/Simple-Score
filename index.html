@@ -28,12 +28,59 @@
     </div>
   </div>
 
+  <svg class="svg-symbols" aria-hidden="true" focusable="false">
+    <symbol id="icon-menu-file" viewBox="0 0 24 24">
+      <path d="M6 3h8l4 4v14H6z"></path>
+      <path d="M14 3v5h5"></path>
+      <path d="M9 13h6M9 17h4"></path>
+    </symbol>
+    <symbol id="icon-menu-edit" viewBox="0 0 24 24">
+      <path d="M4 20h4l11-11-4-4L4 16z"></path>
+      <path d="M13.5 6.5l4 4"></path>
+    </symbol>
+    <symbol id="icon-menu-input" viewBox="0 0 24 24">
+      <path d="M9 18V5l10-2v13"></path>
+      <circle cx="6" cy="18" r="3"></circle>
+      <circle cx="16" cy="16" r="3"></circle>
+    </symbol>
+    <symbol id="icon-menu-form" viewBox="0 0 24 24">
+      <path d="M5 6h14M5 12h14M5 18h10"></path>
+      <path d="M17 17l1.5 1.5L22 15"></path>
+    </symbol>
+    <symbol id="icon-menu-repeat" viewBox="0 0 24 24">
+      <path d="M17 2l4 4-4 4"></path>
+      <path d="M3 11V9a3 3 0 0 1 3-3h15"></path>
+      <path d="M7 22l-4-4 4-4"></path>
+      <path d="M21 13v2a3 3 0 0 1-3 3H3"></path>
+    </symbol>
+    <symbol id="icon-menu-expression" viewBox="0 0 24 24">
+      <path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6z"></path>
+      <path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z"></path>
+      <path d="M5 14l.7 1.6L7 16l-1.3.4L5 18l-.7-1.6L3 16l1.3-.4z"></path>
+    </symbol>
+    <symbol id="icon-menu-view" viewBox="0 0 24 24">
+      <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z"></path>
+      <circle cx="12" cy="12" r="3"></circle>
+    </symbol>
+    <symbol id="icon-menu-score" viewBox="0 0 24 24">
+      <path d="M4 7h16M4 10h16M4 13h16M4 16h16"></path>
+      <path d="M9 16V5l8-2v11"></path>
+      <circle cx="7" cy="16" r="2"></circle>
+      <circle cx="15" cy="14" r="2"></circle>
+    </symbol>
+    <symbol id="icon-menu-help" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="9"></circle>
+      <path d="M9.5 9a2.7 2.7 0 0 1 5.2 1c0 2-2.7 2.2-2.7 4"></path>
+      <path d="M12 17.5h.01"></path>
+    </symbol>
+  </svg>
+
   <!-- Menu Bar -->
   <nav id="menu-bar">
 
     <!-- 파일 -->
     <div class="mb-item" id="mbi-file">
-      <span>파일</span>
+      <span><svg class="mb-icon" aria-hidden="true"><use href="#icon-menu-file"></use></svg><span class="mb-text">파일</span></span>
       <ul class="mb-dropdown">
         <li><button class="mb-action" data-action="new-score">새 악보<kbd>Ctrl+N</kbd></button></li>
         <li class="mb-sep"></li>
@@ -44,7 +91,7 @@
 
     <!-- 편집 -->
     <div class="mb-item" id="mbi-edit">
-      <span>편집</span>
+      <span><svg class="mb-icon" aria-hidden="true"><use href="#icon-menu-edit"></use></svg><span class="mb-text">편집</span></span>
       <ul class="mb-dropdown">
         <li><button class="mb-action" data-action="undo">실행취소<kbd>Ctrl+Z</kbd></button></li>
         <li class="mb-sep"></li>
@@ -54,7 +101,7 @@
 
     <!-- 입력 (음표 길이 + 수정 + 가사 성부 + 성부) -->
     <div class="mb-item" id="mbi-input">
-      <span>입력</span>
+      <span><svg class="mb-icon" aria-hidden="true"><use href="#icon-menu-input"></use></svg><span class="mb-text">입력</span></span>
       <ul class="mb-dropdown">
         <li class="mb-section-label">음표 길이</li>
         <li><button class="mb-action mb-radio" data-action="set-duration" data-value="w">𝅝 온음표<kbd>7</kbd></button></li>
@@ -91,7 +138,7 @@
 
     <!-- 폼 (곡 형식) -->
     <div class="mb-item" id="mbi-form">
-      <span>폼</span>
+      <span><svg class="mb-icon" aria-hidden="true"><use href="#icon-menu-form"></use></svg><span class="mb-text">폼</span></span>
       <ul class="mb-dropdown">
         <li class="mb-section-label">곡 형식 레이블</li>
         <li><button class="mb-action mb-check" data-action="set-form" data-value="intro">인트로</button></li>
@@ -109,7 +156,7 @@
 
     <!-- 반복 (Repeat Notation) -->
     <div class="mb-item" id="mbi-repeat">
-      <span>반복</span>
+      <span><svg class="mb-icon" aria-hidden="true"><use href="#icon-menu-repeat"></use></svg><span class="mb-text">반복</span></span>
       <ul class="mb-dropdown">
         <li class="mb-section-label">반복 기호</li>
         <li><button class="mb-action mb-check" data-action="set-repeat" data-value="repeat-start">|: 시작 반복</button></li>
@@ -130,7 +177,7 @@
 
     <!-- 표현 (Articulation + Dynamics) -->
     <div class="mb-item" id="mbi-expr">
-      <span>표현</span>
+      <span><svg class="mb-icon" aria-hidden="true"><use href="#icon-menu-expression"></use></svg><span class="mb-text">표현</span></span>
       <ul class="mb-dropdown" style="min-width:170px">
         <li class="mb-section-label">아티큘레이션</li>
         <li><button class="mb-action mb-check" data-action="set-artic" data-value="staccato">· 스타카토</button></li>
@@ -157,7 +204,7 @@
 
     <!-- 보기 -->
     <div class="mb-item" id="mbi-view">
-      <span>보기</span>
+      <span><svg class="mb-icon" aria-hidden="true"><use href="#icon-menu-view"></use></svg><span class="mb-text">보기</span></span>
       <ul class="mb-dropdown">
         <li><button class="mb-action mb-check" id="mb-check-mno" data-action="toggle-measure-numbers">마디 번호 표시</button></li>
         <li class="mb-sep"></li>
@@ -179,7 +226,7 @@
 
     <!-- 악보 -->
     <div class="mb-item" id="mbi-score">
-      <span>악보</span>
+      <span><svg class="mb-icon" aria-hidden="true"><use href="#icon-menu-score"></use></svg><span class="mb-text">악보</span></span>
       <ul class="mb-dropdown">
         <li class="mb-has-sub">
           <button class="mb-sub-trigger">조성<span class="mb-arrow">›</span></button>
@@ -209,7 +256,7 @@
 
     <!-- 도움말 -->
     <div class="mb-item" id="mbi-help">
-      <span>도움말</span>
+      <span><svg class="mb-icon" aria-hidden="true"><use href="#icon-menu-help"></use></svg><span class="mb-text">도움말</span></span>
       <ul class="mb-dropdown">
         <li><button class="mb-action" data-action="show-shortcuts">키보드 단축키<kbd>?</kbd></button></li>
       </ul>
