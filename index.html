@@ -73,6 +73,54 @@
       <path d="M9.5 9a2.7 2.7 0 0 1 5.2 1c0 2-2.7 2.2-2.7 4"></path>
       <path d="M12 17.5h.01"></path>
     </symbol>
+    <symbol id="icon-toolbar-lyric-style" viewBox="0 0 24 24">
+      <path d="M5 19l5.8-14h2.4L19 19"></path>
+      <path d="M8 14h8"></path>
+      <path d="M5 21h14"></path>
+    </symbol>
+    <symbol id="icon-toolbar-measures" viewBox="0 0 24 24">
+      <path d="M4 7h16M4 12h16M4 17h16"></path>
+      <path d="M8 5v14M14 5v14"></path>
+    </symbol>
+    <symbol id="icon-toolbar-score-size" viewBox="0 0 24 24">
+      <path d="M6 8h12M6 12h12M6 16h12"></path>
+      <path d="M4 4h5M4 4v5M20 20h-5M20 20v-5"></path>
+    </symbol>
+    <symbol id="icon-toolbar-score-spacing" viewBox="0 0 24 24">
+      <path d="M5 7h14M5 12h14M5 17h14"></path>
+      <path d="M12 3v3M12 9v6M12 18v3"></path>
+      <path d="M10 5l2-2 2 2M10 19l2 2 2-2"></path>
+    </symbol>
+    <symbol id="icon-toolbar-measure-width" viewBox="0 0 24 24">
+      <path d="M6 5v14M18 5v14"></path>
+      <path d="M8 12h8"></path>
+      <path d="M9.5 9.5L7 12l2.5 2.5M14.5 9.5L17 12l-2.5 2.5"></path>
+    </symbol>
+    <symbol id="icon-toolbar-note-color" viewBox="0 0 24 24">
+      <path d="M8 17V5l9-2v12"></path>
+      <circle cx="6" cy="17" r="3"></circle>
+      <circle cx="15" cy="15" r="3"></circle>
+      <path d="M18 18.5c0 1.4-1.1 2.5-2.5 2.5S13 19.9 13 18.5 15.5 14 15.5 14 18 17.1 18 18.5z"></path>
+    </symbol>
+    <symbol id="icon-toolbar-note-head" viewBox="0 0 24 24">
+      <ellipse cx="12" cy="13" rx="6.5" ry="4" transform="rotate(-20 12 13)"></ellipse>
+      <path d="M5 19h14"></path>
+    </symbol>
+    <symbol id="icon-toolbar-note-stem" viewBox="0 0 24 24">
+      <ellipse cx="9" cy="17" rx="4" ry="3" transform="rotate(-20 9 17)"></ellipse>
+      <path d="M13 16V5"></path>
+      <path d="M13 5h6"></path>
+    </symbol>
+    <symbol id="icon-toolbar-key" viewBox="0 0 24 24">
+      <circle cx="8" cy="15" r="3"></circle>
+      <path d="M11 15h8"></path>
+      <path d="M16 15v-3M19 15v-2"></path>
+    </symbol>
+    <symbol id="icon-toolbar-time" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="8"></circle>
+      <path d="M12 7v5l3 2"></path>
+      <path d="M7 20h10"></path>
+    </symbol>
   </svg>
 
   <!-- Menu Bar -->
@@ -328,14 +376,14 @@
       <div class="toolbar-group" id="toolbar-settings">
         <span class="toolbar-group-label">설정</span>
         <div class="toolbar-controls-row">
-          <span class="tb-mini-label">조</span>
+          <span class="tb-mini-label"><svg class="tb-icon" aria-hidden="true"><use href="#icon-toolbar-key"></use></svg>조</span>
           <select id="key-sig-select" class="tb-select">
             <option value="C">C 장조</option><option value="G">G 장조</option>
             <option value="D">D 장조</option><option value="A">A 장조</option>
             <option value="E">E 장조</option><option value="F">F 장조</option>
             <option value="Bb">Bb 장조</option><option value="Eb">Eb 장조</option>
           </select>
-          <span class="tb-mini-label">박자</span>
+          <span class="tb-mini-label"><svg class="tb-icon" aria-hidden="true"><use href="#icon-toolbar-time"></use></svg>박자</span>
           <select id="time-sig-select" class="tb-select">
             <option value="4/4">4/4</option><option value="3/4">3/4</option>
             <option value="2/4">2/4</option><option value="6/8">6/8</option>
@@ -348,12 +396,12 @@
 
       <!-- Note Color -->
       <div class="toolbar-group" id="toolbar-note-color">
-        <span class="toolbar-group-label">색깔음표</span>
+        <span class="toolbar-group-label"><svg class="tb-icon" aria-hidden="true"><use href="#icon-toolbar-note-color"></use></svg>색깔음표</span>
         <div class="toolbar-controls-row">
-          <span class="tb-mini-label">음표 머리</span>
+          <span class="tb-mini-label"><svg class="tb-icon" aria-hidden="true"><use href="#icon-toolbar-note-head"></use></svg>음표 머리</span>
           <input type="color" id="note-head-color" value="#000000" class="tb-color" />
           <span id="note-head-color-hex" class="tb-val">#000000</span>
-          <span class="tb-mini-label">음표 기둥</span>
+          <span class="tb-mini-label"><svg class="tb-icon" aria-hidden="true"><use href="#icon-toolbar-note-stem"></use></svg>음표 기둥</span>
           <input type="color" id="note-stem-color" value="#000000" class="tb-color" />
           <span id="note-stem-color-hex" class="tb-val">#000000</span>
         </div>
@@ -379,7 +427,7 @@
 
       <!-- 가사 스타일 -->
       <div class="toolbar-group" id="lyric-style-section">
-        <span class="toolbar-group-label">가사 스타일</span>
+        <span class="toolbar-group-label"><svg class="tb-icon" aria-hidden="true"><use href="#icon-toolbar-lyric-style"></use></svg>가사 스타일</span>
         <div class="toolbar-controls-row">
           <select id="lyric-font" class="tb-select">
             <option value="'DM Sans', sans-serif" selected>DM Sans</option>
@@ -413,16 +461,16 @@
       <div class="toolbar-group">
         <span class="toolbar-group-label">레이아웃</span>
         <div class="toolbar-controls-row">
-          <span class="tb-mini-label">마디 개수</span>
+          <span class="tb-mini-label"><svg class="tb-icon" aria-hidden="true"><use href="#icon-toolbar-measures"></use></svg>마디 개수</span>
           <input type="range" id="sl-measures-per-line" min="1" max="8" value="4" step="1" class="tb-slider" />
           <span class="tb-val" id="val-measures-per-line">4</span>
-          <span class="tb-mini-label">악보 크기</span>
+          <span class="tb-mini-label"><svg class="tb-icon" aria-hidden="true"><use href="#icon-toolbar-score-size"></use></svg>악보 크기</span>
           <input type="range" id="sl-staff-scale" min="6" max="20" value="10" step="1" class="tb-slider" />
           <span class="tb-val" id="val-staff-scale">10</span>
-          <span class="tb-mini-label">악보 간격</span>
+          <span class="tb-mini-label"><svg class="tb-icon" aria-hidden="true"><use href="#icon-toolbar-score-spacing"></use></svg>악보 간격</span>
           <input type="range" id="sl-staff-spacing" min="80" max="240" value="130" step="5" class="tb-slider" />
           <span class="tb-val" id="val-staff-spacing">130</span>
-          <span class="tb-mini-label">마디 간격</span>
+          <span class="tb-mini-label"><svg class="tb-icon" aria-hidden="true"><use href="#icon-toolbar-measure-width"></use></svg>마디 간격</span>
           <input type="range" id="sl-measure-width" min="120" max="400" value="200" step="10" class="tb-slider" />
           <span class="tb-val" id="val-measure-width">200</span>
           <span class="tb-mini-label">마디 번호</span>

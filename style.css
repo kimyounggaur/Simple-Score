@@ -397,6 +397,7 @@ html, body {
   font-size: 9px; font-weight: 700; text-transform: uppercase;
   letter-spacing: 0.6px; color: rgba(255,255,255,0.38); white-space: nowrap;
   line-height: 1;
+  display: inline-flex; align-items: center; gap: 4px;
 }
 .toolbar-controls-row {
   display: flex; align-items: center; gap: 6px;
@@ -433,6 +434,18 @@ html, body {
 }
 .tb-mini-label {
   font-size: 10px; color: rgba(255,255,255,0.42); white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 3px;
+}
+.tb-icon {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 10px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.9;
 }
 .tb-color {
   -webkit-appearance: none; appearance: none;
