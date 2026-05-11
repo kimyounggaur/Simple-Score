@@ -1010,6 +1010,112 @@ input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.1); }
 }
 .gap-panel-close:hover { color: #333; }
 
+/* ─── Note Context Menu ─── */
+.note-context-menu {
+  position: fixed;
+  z-index: 7000;
+  min-width: 190px;
+  max-width: 240px;
+  padding: 6px;
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 8px;
+  background: rgba(32,32,36,0.96);
+  color: rgba(255,255,255,0.92);
+  box-shadow: 0 18px 48px rgba(0,0,0,0.36);
+  backdrop-filter: saturate(160%) blur(18px);
+  -webkit-backdrop-filter: saturate(160%) blur(18px);
+  font-family: var(--font-body);
+  font-size: 13px;
+  user-select: none;
+}
+.note-context-menu[hidden] { display: none; }
+.note-context-title {
+  padding: 5px 10px 6px;
+  font-size: 11px;
+  font-weight: 800;
+  color: rgba(255,255,255,0.48);
+  letter-spacing: 0;
+}
+.note-context-separator {
+  height: 1px;
+  margin: 5px 4px;
+  background: rgba(255,255,255,0.12);
+}
+.note-context-item {
+  position: relative;
+}
+.note-context-row {
+  width: 100%;
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  font-family: var(--font-body);
+  font-size: 13px;
+  text-align: left;
+  cursor: default;
+  white-space: nowrap;
+}
+.note-context-row:hover:not(:disabled),
+.note-context-item.has-submenu:hover > .note-context-row:not(:disabled) {
+  background: var(--accent);
+  color: #ffffff;
+}
+.note-context-row:disabled,
+.note-context-item.disabled > .note-context-row {
+  color: rgba(255,255,255,0.34);
+}
+.note-context-row.danger {
+  color: #ffb4b4;
+}
+.note-context-row.danger:hover:not(:disabled) {
+  background: #b42318;
+  color: #ffffff;
+}
+.note-context-check {
+  width: 14px;
+  flex: 0 0 14px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 800;
+}
+.note-context-label {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.note-context-arrow {
+  margin-left: 12px;
+  opacity: 0.7;
+}
+.note-context-submenu {
+  position: absolute;
+  top: -6px;
+  left: calc(100% + 6px);
+  min-width: 160px;
+  padding: 6px;
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 8px;
+  background: rgba(32,32,36,0.98);
+  box-shadow: 0 18px 48px rgba(0,0,0,0.34);
+  display: none;
+}
+.note-context-item.has-submenu:hover > .note-context-submenu {
+  display: block;
+}
+.note-context-item.disabled.has-submenu:hover > .note-context-submenu {
+  display: none;
+}
+.note-context-menu.submenu-left .note-context-submenu {
+  left: auto;
+  right: calc(100% + 6px);
+}
+
 /* ─── Song Form Buttons ─── */
 .form-buttons {
   display: grid;

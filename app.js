@@ -73,6 +73,7 @@ const appState = {
 
   selectedNoteIndex : -1,
   selectedNotes     : [],
+  contextMenuTarget : null,
   isDragging        : false,
   isRangeSelecting  : false,
   rangeSelectStart  : null,
@@ -470,6 +471,7 @@ const dom = {
   statusPitch : document.getElementById('status-pitch'),
   statusChord : document.getElementById('status-chord'),
   statusLyric : document.getElementById('status-lyric'),
+  noteContextMenu : document.getElementById('note-context-menu'),
 
   /* lyric style controls */
   lyricFont       : document.getElementById('lyric-font'),
@@ -3164,6 +3166,334 @@ function getCanvasCoords(e) {
   };
 }
 
+const CONTEXT_DURATIONS = [
+  { value: 'w',  label: '온음표' },
+  { value: 'h',  label: '2분음표' },
+  { value: 'q',  label: '4분음표' },
+  { value: '8',  label: '8분음표' },
+  { value: '16', label: '16분음표' },
+];
+
+const CONTEXT_ARTICULATIONS = [
+  { value: 'staccato',      label: '스타카토' },
+  { value: 'accent',        label: '악센트' },
+  { value: 'tenuto',        label: '테누토' },
+  { value: 'marcato',       label: '마르카토' },
+  { value: 'staccatissimo', label: '스타카티시모' },
+];
+
+const CONTEXT_DYNAMICS = ['pp', 'p', 'mp', 'mf', 'f', 'ff', 'sfz', 'fp'];
+
+function isSameNoteRef(left, right) {
+  return !!left && !!right && left.voice === right.voice && left.index === right.index;
+}
+
+function getContextNote(ref = appState.contextMenuTarget) {
+  if (!ref) return null;
+  return notesForVoice(ref.voice)[ref.index] || null;
+}
+
+function setCursorToNoteRef(ref) {
+  if (!ref) return;
+  appState.currentVoice = ref.voice;
+  setActiveCursor(ref.index);
+  document.querySelectorAll('.voice-btn').forEach((button) =>
+    button.classList.toggle('active', Number(button.dataset.voice) === ref.voice)
+  );
+}
+
+function getContextTargets() {
+  const target = appState.contextMenuTarget;
+  if (!target) return [];
+  const selectedHasTarget = appState.selectedNotes.some((note) => isSameNoteRef(note, target));
+  const source = selectedHasTarget ? appState.selectedNotes : [target];
+  const seen = new Set();
+
+  return source
+    .filter((ref) => {
+      const key = `${ref.voice}:${ref.index}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return !!getContextNote(ref);
+    })
+    .sort((left, right) => left.voice - right.voice || left.index - right.index);
+}
+
+function applyToContextTargets(mutator) {
+  const targets = getContextTargets();
+  if (!targets.length) return;
+  targets.forEach((ref) => {
+    const note = getContextNote(ref);
+    if (note) mutator(note, ref);
+  });
+  renderScore();
+}
+
+function deleteContextTargets() {
+  const targets = getContextTargets();
+  if (!targets.length) return;
+  const byVoice = new Map();
+  targets.forEach((ref) => {
+    if (!byVoice.has(ref.voice)) byVoice.set(ref.voice, []);
+    byVoice.get(ref.voice).push(ref.index);
+  });
+
+  byVoice.forEach((indexes, voice) => {
+    const notes = notesForVoice(voice);
+    [...new Set(indexes)].sort((left, right) => right - left).forEach((index) => {
+      if (index >= 0 && index < notes.length) notes.splice(index, 1);
+    });
+    const cursor = voice === 0 ? appState.cursorIndex : appState.v2CursorIdx;
+    const nextCursor = Math.max(0, Math.min(cursor, notes.length));
+    if (voice === 0) appState.cursorIndex = nextCursor;
+    else appState.v2CursorIdx = nextCursor;
+  });
+
+  appState.selectedNotes = [];
+  appState.contextMenuTarget = null;
+  resetTupletDraft();
+  renderScore();
+}
+
+function contextMenuItem(label, action, value = '', options = {}) {
+  const check = options.checked ? '✓' : '';
+  const danger = options.danger ? ' danger' : '';
+  const disabled = options.disabled ? ' disabled' : '';
+  const attrDisabled = options.disabled ? ' disabled aria-disabled="true"' : '';
+  const valueAttr = value !== '' ? ` data-context-value="${String(value)}"` : '';
+  return `
+    <button type="button" class="note-context-row${danger}${disabled}" role="menuitem" data-context-action="${action}"${valueAttr}${attrDisabled}>
+      <span class="note-context-check">${check}</span>
+      <span class="note-context-label">${label}</span>
+    </button>`;
+}
+
+function contextMenuSubmenu(label, rows, options = {}) {
+  const disabled = options.disabled ? ' disabled' : '';
+  const attrDisabled = options.disabled ? ' disabled aria-disabled="true"' : '';
+  return `
+    <div class="note-context-item has-submenu${disabled}">
+      <button type="button" class="note-context-row${disabled}" role="menuitem" tabindex="-1"${attrDisabled}>
+        <span class="note-context-check"></span>
+        <span class="note-context-label">${label}</span>
+        <span class="note-context-arrow">›</span>
+      </button>
+      <div class="note-context-submenu" role="menu">
+        ${rows.join('')}
+      </div>
+    </div>`;
+}
+
+function renderNoteContextMenu() {
+  if (!dom.noteContextMenu) return;
+  const primary = getContextNote();
+  const target = appState.contextMenuTarget;
+  if (!primary || !target) return;
+
+  const selectedCount = getContextTargets().length;
+  const isRest = !!primary.isRest;
+  const isVoiceOne = target.voice === 0;
+  const canUseNoteExpression = !isRest;
+  const canUseStem = !isRest && primary.duration !== 'w';
+  const restToggleLabel = isRest ? '음표로 전환' : '쉼표로 전환';
+  const chordUnavailable = !isVoiceOne;
+  const lyricUnavailable = isRest;
+  const currentStem = primary.stemDirection || 'auto';
+
+  const durationRows = CONTEXT_DURATIONS.map((item) =>
+    contextMenuItem(item.label, 'duration', item.value, { checked: primary.duration === item.value })
+  );
+  const strumRows = [
+    contextMenuItem('다운 스트럼', 'strum', 'down', { checked: primary.strum === 'down' }),
+    contextMenuItem('업 스트럼', 'strum', 'up', { checked: primary.strum === 'up' }),
+  ];
+  const articulationRows = CONTEXT_ARTICULATIONS.map((item) =>
+    contextMenuItem(item.label, 'articulation', item.value, {
+      checked: primary.articulation === item.value,
+      disabled: !canUseNoteExpression,
+    })
+  );
+  const dynamicRows = CONTEXT_DYNAMICS.map((value) =>
+    contextMenuItem(value, 'dynamic', value, {
+      checked: primary.dynamic === value,
+      disabled: !canUseNoteExpression,
+    })
+  );
+  const stemRows = [
+    contextMenuItem('기둥 자동', 'stem', 'auto', { checked: currentStem === 'auto', disabled: !canUseStem }),
+    contextMenuItem('기둥 위로', 'stem', 'up', { checked: currentStem === 'up', disabled: !canUseStem }),
+    contextMenuItem('기둥 아래로', 'stem', 'down', { checked: currentStem === 'down', disabled: !canUseStem }),
+  ];
+
+  dom.noteContextMenu.innerHTML = `
+    <div class="note-context-title">${selectedCount > 1 ? `선택 ${selectedCount}개` : (isRest ? '쉼표' : '음표')}</div>
+    ${contextMenuSubmenu('길이 변경', durationRows)}
+    ${contextMenuItem(restToggleLabel, 'toggle-rest')}
+    ${contextMenuItem('점음표', 'toggle-dot', '', { checked: !!primary.isDotted })}
+    <div class="note-context-separator"></div>
+    ${contextMenuItem('코드 입력', 'chord-input', '', { disabled: chordUnavailable })}
+    ${contextMenuItem('코드도표', 'chord-diagram', '', { checked: !!appState.showChordDiagrams, disabled: chordUnavailable })}
+    ${contextMenuItem('가사 입력', 'lyric-input', '', { disabled: lyricUnavailable })}
+    <div class="note-context-separator"></div>
+    ${contextMenuSubmenu('스트럼', strumRows)}
+    ${contextMenuSubmenu('아티큘레이션', articulationRows, { disabled: !canUseNoteExpression })}
+    ${contextMenuSubmenu('셈여림', dynamicRows, { disabled: !canUseNoteExpression })}
+    ${contextMenuSubmenu('기둥 방향', stemRows, { disabled: !canUseStem })}
+    <div class="note-context-separator"></div>
+    ${contextMenuItem('삭제', 'delete', '', { danger: true })}
+  `;
+}
+
+function positionNoteContextMenu(clientX, clientY) {
+  const menu = dom.noteContextMenu;
+  if (!menu) return;
+  menu.hidden = false;
+  menu.style.left = '0px';
+  menu.style.top = '0px';
+  const rect = menu.getBoundingClientRect();
+  const margin = 8;
+  const left = Math.max(margin, Math.min(clientX, window.innerWidth - rect.width - margin));
+  const top = Math.max(margin, Math.min(clientY, window.innerHeight - rect.height - margin));
+  menu.classList.toggle('submenu-left', left + rect.width + 190 > window.innerWidth);
+  menu.style.left = `${left}px`;
+  menu.style.top = `${top}px`;
+}
+
+function hideNoteContextMenu() {
+  if (!dom.noteContextMenu) return;
+  dom.noteContextMenu.hidden = true;
+  appState.contextMenuTarget = null;
+}
+
+function openNoteContextMenu(e, hit) {
+  clearTimeout(_clickTimer);
+  _pendingClick = null;
+  appState._mouseDownOnNote = false;
+  appState._mouseDidDrag = false;
+  appState.contextMenuTarget = hit;
+  setCursorToNoteRef(hit);
+
+  const clickedSelection = appState.selectedNotes.some((note) => isSameNoteRef(note, hit));
+  if (!clickedSelection) appState.selectedNotes = [{ voice: hit.voice, index: hit.index }];
+
+  hideGhost();
+  renderScore();
+  renderNoteContextMenu();
+  positionNoteContextMenu(e.clientX, e.clientY);
+}
+
+function openChordInputFromContext() {
+  const target = appState.contextMenuTarget;
+  if (!target || target.voice !== 0) return;
+  hideNoteContextMenu();
+  if (!requireFullToolsAccess()) return;
+  if (appState.lyricMode) toggleLyricMode();
+  appState.chordMode = true;
+  dom.btnChord.classList.add('active');
+  appState.currentVoice = 0;
+  appState.cursorIndex = target.index;
+  appState.chordEditIndex = target.index;
+  appState.selectedNotes = [];
+  renderScore();
+  showChordInput();
+  updateStatusBar();
+}
+
+function openLyricInputFromContext() {
+  const target = appState.contextMenuTarget;
+  const note = getContextNote(target);
+  if (!target || !note || note.isRest) return;
+  hideNoteContextMenu();
+  if (!requireFullToolsAccess()) return;
+  if (appState.chordMode) toggleChordMode();
+  appState.lyricMode = true;
+  dom.btnLyric.classList.add('active');
+  setCursorToNoteRef(target);
+  appState.lyricEditIndex = target.index;
+  appState.lyricEditVoice = target.voice;
+  appState.selectedNotes = [];
+  renderScore();
+  showLyricInput();
+  updateStatusBar();
+}
+
+function handleNoteContextAction(action, value) {
+  const primary = getContextNote();
+  if (!primary) return;
+
+  switch (action) {
+    case 'duration':
+      applyToContextTargets((note) => { note.duration = value; });
+      break;
+    case 'toggle-rest': {
+      const nextIsRest = !primary.isRest;
+      applyToContextTargets((note) => {
+        note.isRest = nextIsRest;
+        if (nextIsRest) {
+          delete note.articulation;
+          delete note.dynamic;
+          delete note.stemDirection;
+        } else if (!note.keys || !note.keys.length) {
+          note.keys = ['c/4'];
+        }
+      });
+      break;
+    }
+    case 'toggle-dot': {
+      const nextIsDotted = !primary.isDotted;
+      applyToContextTargets((note) => { note.isDotted = nextIsDotted; });
+      break;
+    }
+    case 'chord-input':
+      openChordInputFromContext();
+      return;
+    case 'chord-diagram':
+      if (!requireFullToolsAccess()) return;
+      appState.showChordDiagrams = !appState.showChordDiagrams;
+      dom.btnChordDiagram?.classList.toggle('active', appState.showChordDiagrams);
+      renderScore();
+      break;
+    case 'lyric-input':
+      openLyricInputFromContext();
+      return;
+    case 'strum':
+      applyToContextTargets((note) => {
+        if (note.strum === value) delete note.strum;
+        else note.strum = value;
+      });
+      break;
+    case 'articulation':
+      applyToContextTargets((note) => {
+        if (note.isRest) return;
+        if (note.articulation === value) delete note.articulation;
+        else note.articulation = value;
+      });
+      break;
+    case 'dynamic':
+      applyToContextTargets((note) => {
+        if (note.isRest) return;
+        if (note.dynamic === value) delete note.dynamic;
+        else note.dynamic = value;
+      });
+      break;
+    case 'stem':
+      applyToContextTargets((note) => {
+        if (note.isRest || note.duration === 'w') return;
+        if (value === 'auto') delete note.stemDirection;
+        else note.stemDirection = value;
+      });
+      break;
+    case 'delete':
+      deleteContextTargets();
+      break;
+    default:
+      return;
+  }
+
+  hideNoteContextMenu();
+  updateStatusBar();
+}
+
 function getRangeSelectionBoxEl() {
   let box = document.getElementById('range-selection-box');
   if (!box) {
@@ -3313,8 +3643,46 @@ function scheduleRenderDrag() {
 let _clickTimer   = 0;
 let _pendingClick = null;
 
+dom.canvas.addEventListener('contextmenu', (e) => {
+  if (appState.isPlaying) return;
+  const { x: mx, y: my } = getCanvasCoords(e);
+  const hit = hitTestNote(mx, my);
+  if (!hit) {
+    hideNoteContextMenu();
+    return;
+  }
+  e.preventDefault();
+  openNoteContextMenu(e, hit);
+});
+
+dom.noteContextMenu?.addEventListener('click', (e) => {
+  e.stopPropagation();
+  const button = e.target.closest('[data-context-action]');
+  if (!button || button.disabled) return;
+  handleNoteContextAction(button.dataset.contextAction, button.dataset.contextValue || '');
+});
+
+dom.noteContextMenu?.addEventListener('contextmenu', (e) => e.preventDefault());
+
+document.addEventListener('click', (e) => {
+  if (!dom.noteContextMenu || dom.noteContextMenu.hidden) return;
+  if (!dom.noteContextMenu.contains(e.target)) hideNoteContextMenu();
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && dom.noteContextMenu && !dom.noteContextMenu.hidden) {
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    hideNoteContextMenu();
+  }
+});
+
+window.addEventListener('resize', hideNoteContextMenu);
+window.addEventListener('scroll', hideNoteContextMenu, true);
+
 /* ── Mousedown ── */
 dom.canvas.addEventListener('mousedown', (e) => {
+  if (e.button === 0) hideNoteContextMenu();
   if (e.button !== 0 || appState.isPlaying) return;
   const { x: mx, y: my } = getCanvasCoords(e);
   appState._mouseDidDrag = false;
