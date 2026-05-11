@@ -74,6 +74,7 @@ const appState = {
   selectedNoteIndex : -1,
   selectedNotes     : [],
   contextMenuTarget : null,
+  measureContextTarget : null,
   isDragging        : false,
   isRangeSelecting  : false,
   rangeSelectStart  : null,
@@ -472,6 +473,7 @@ const dom = {
   statusChord : document.getElementById('status-chord'),
   statusLyric : document.getElementById('status-lyric'),
   noteContextMenu : document.getElementById('note-context-menu'),
+  measureContextMenu : document.getElementById('measure-context-menu'),
 
   /* lyric style controls */
   lyricFont       : document.getElementById('lyric-font'),
@@ -3184,6 +3186,32 @@ const CONTEXT_ARTICULATIONS = [
 
 const CONTEXT_DYNAMICS = ['pp', 'p', 'mp', 'mf', 'f', 'ff', 'sfz', 'fp'];
 
+const CONTEXT_REPEAT_MARKS = [
+  { value: 'repeat-start', label: '|: 반복 시작' },
+  { value: 'repeat-end',   label: '반복 끝 :|' },
+  { value: 'volta-1',      label: '1번 엔딩' },
+  { value: 'volta-2',      label: '2번 엔딩' },
+  { value: 'segno',        label: '세뇨' },
+  { value: 'coda',         label: '코다' },
+  { value: 'da-capo',      label: 'D.C.' },
+  { value: 'dal-segno',    label: 'D.S.' },
+  { value: 'ds-al-coda',   label: 'D.S. 알 코다' },
+  { value: 'fine',         label: '피네' },
+];
+
+const CONTEXT_FORM_MARKS = [
+  { value: 'intro',      label: '인트로' },
+  { value: 'verse',      label: '벌스' },
+  { value: 'pre-chorus', label: '프리코러스' },
+  { value: 'chorus',     label: '코러스' },
+  { value: 'interlude',  label: '간주' },
+  { value: 'bridge',     label: '브리지' },
+  { value: 'climax',     label: '클라이맥스' },
+  { value: 'outro',      label: '아웃트로' },
+  { value: 'fade-in',    label: '페이드 인' },
+  { value: 'fade-out',   label: '페이드 아웃' },
+];
+
 function isSameNoteRef(left, right) {
   return !!left && !!right && left.voice === right.voice && left.index === right.index;
 }
@@ -3252,6 +3280,130 @@ function deleteContextTargets() {
   appState.selectedNotes = [];
   appState.contextMenuTarget = null;
   resetTupletDraft();
+  renderScore();
+}
+
+function createRestMeasureNotes() {
+  let remaining = getBeatsPerMeasure();
+  const durations = [
+    { value: 'w', beats: 4 },
+    { value: 'h', beats: 2 },
+    { value: 'q', beats: 1 },
+    { value: '8', beats: 0.5 },
+    { value: '16', beats: 0.25 },
+  ];
+  const rests = [];
+
+  durations.forEach((duration) => {
+    while (remaining >= duration.beats - 0.001) {
+      rests.push({ keys: ['b/4'], duration: duration.value, isRest: true, isDotted: false });
+      remaining -= duration.beats;
+    }
+  });
+
+  return rests;
+}
+
+function getMeasureRangeForEdit(notes, measureIndex) {
+  const measures = splitIntoMeasures(notes);
+  const measure = measures[measureIndex];
+  if (measure && measure.length) {
+    return {
+      start: measure[0]._gi,
+      end: measure[measure.length - 1]._gi + 1,
+      exists: true,
+    };
+  }
+
+  if (measureIndex >= measures.length) {
+    return {
+      start: notes.length,
+      end: notes.length,
+      exists: false,
+    };
+  }
+
+  return null;
+}
+
+function shiftMeasureIndexedObject(source, fromIndex, delta, options = {}) {
+  const shifted = {};
+  Object.entries(source || {}).forEach(([rawKey, value]) => {
+    const key = Number(rawKey);
+    if (!Number.isFinite(key)) return;
+    if (options.dropIndex === key) return;
+    const nextKey = key >= fromIndex ? key + delta : key;
+    if (nextKey >= 0) shifted[nextKey] = value;
+  });
+  return shifted;
+}
+
+function shiftMeasureMetadataForInsert(measureIndex) {
+  appState.repeatMarkers = shiftMeasureIndexedObject(appState.repeatMarkers, measureIndex, 1);
+  appState.songFormLabels = shiftMeasureIndexedObject(appState.songFormLabels, measureIndex, 1);
+  appState.measureGaps = shiftMeasureIndexedObject(appState.measureGaps, measureIndex, 1);
+}
+
+function shiftMeasureMetadataForDelete(measureIndex) {
+  appState.repeatMarkers = shiftMeasureIndexedObject(appState.repeatMarkers, measureIndex + 1, -1, { dropIndex: measureIndex });
+  appState.songFormLabels = shiftMeasureIndexedObject(appState.songFormLabels, measureIndex + 1, -1, { dropIndex: measureIndex });
+  appState.measureGaps = shiftMeasureIndexedObject(appState.measureGaps, measureIndex + 1, -1, { dropIndex: measureIndex });
+}
+
+function insertRestMeasureIntoVoice(notes, measureIndex) {
+  const range = getMeasureRangeForEdit(notes, measureIndex);
+  if (!range) return;
+  notes.splice(range.start, 0, ...createRestMeasureNotes());
+}
+
+function replaceMeasureWithRests(notes, measureIndex) {
+  const range = getMeasureRangeForEdit(notes, measureIndex);
+  if (!range) return false;
+  notes.splice(range.start, range.end - range.start, ...createRestMeasureNotes());
+  return true;
+}
+
+function removeMeasureFromVoice(notes, measureIndex) {
+  const range = getMeasureRangeForEdit(notes, measureIndex);
+  if (!range || !range.exists) return false;
+  notes.splice(range.start, range.end - range.start);
+  return true;
+}
+
+function resetMeasureCursors(measureIndex) {
+  appState.currentVoice = 0;
+  const v1Range = getMeasureRangeForEdit(appState.notes, measureIndex);
+  const v2Range = getMeasureRangeForEdit(appState.voice2Notes, measureIndex);
+  appState.cursorIndex = v1Range ? Math.min(v1Range.start, appState.notes.length) : appState.notes.length;
+  appState.v2CursorIdx = v2Range ? Math.min(v2Range.start, appState.voice2Notes.length) : appState.voice2Notes.length;
+  appState.selectedNotes = [];
+  appState.selectedNoteIndex = -1;
+  document.querySelectorAll('.voice-btn').forEach((button) =>
+    button.classList.toggle('active', Number(button.dataset.voice) === appState.currentVoice)
+  );
+}
+
+function insertBlankMeasure(measureIndex) {
+  insertRestMeasureIntoVoice(appState.notes, measureIndex);
+  if (appState.voice2Notes.length) insertRestMeasureIntoVoice(appState.voice2Notes, measureIndex);
+  shiftMeasureMetadataForInsert(measureIndex);
+  resetMeasureCursors(measureIndex);
+  renderScore();
+}
+
+function clearMeasure(measureIndex) {
+  const changedV1 = replaceMeasureWithRests(appState.notes, measureIndex);
+  const changedV2 = appState.voice2Notes.length ? replaceMeasureWithRests(appState.voice2Notes, measureIndex) : false;
+  if (!changedV1 && !changedV2) replaceMeasureWithRests(appState.notes, measureIndex);
+  resetMeasureCursors(measureIndex);
+  renderScore();
+}
+
+function deleteMeasure(measureIndex) {
+  removeMeasureFromVoice(appState.notes, measureIndex);
+  if (appState.voice2Notes.length) removeMeasureFromVoice(appState.voice2Notes, measureIndex);
+  shiftMeasureMetadataForDelete(measureIndex);
+  resetMeasureCursors(Math.max(0, measureIndex - 1));
   renderScore();
 }
 
@@ -3365,6 +3517,139 @@ function hideNoteContextMenu() {
   appState.contextMenuTarget = null;
 }
 
+function renderMeasureContextMenu() {
+  if (!dom.measureContextMenu) return;
+  const measureIndex = appState.measureContextTarget;
+  if (!Number.isFinite(measureIndex)) return;
+
+  const repeats = appState.repeatMarkers[measureIndex] || {};
+  const currentForm = appState.songFormLabels[measureIndex] || '';
+  const repeatRows = CONTEXT_REPEAT_MARKS.map((item) =>
+    contextMenuItem(item.label, 'measure-repeat', item.value, { checked: !!repeats[item.value] })
+  );
+  const formRows = CONTEXT_FORM_MARKS.map((item) =>
+    contextMenuItem(item.label, 'measure-form', item.value, { checked: currentForm === item.value })
+  );
+
+  dom.measureContextMenu.innerHTML = `
+    <div class="note-context-title">마디 ${measureIndex + 1}</div>
+    ${contextMenuItem('마디 뒤 간격 조정', 'measure-gap')}
+    ${contextMenuSubmenu('반복 기호', repeatRows)}
+    ${contextMenuSubmenu('곡 형식', formRows)}
+    <div class="note-context-separator"></div>
+    ${contextMenuItem('빈 마디 삽입', 'measure-insert')}
+    ${contextMenuItem('이 마디 재생', 'measure-play')}
+    ${contextMenuItem('이 마디 비우기', 'measure-clear')}
+    ${contextMenuItem('이 마디 삭제', 'measure-delete', '', { danger: true })}
+  `;
+}
+
+function positionMeasureContextMenu(clientX, clientY) {
+  const menu = dom.measureContextMenu;
+  if (!menu) return;
+  menu.hidden = false;
+  menu.style.left = '0px';
+  menu.style.top = '0px';
+  const rect = menu.getBoundingClientRect();
+  const margin = 8;
+  const left = Math.max(margin, Math.min(clientX, window.innerWidth - rect.width - margin));
+  const top = Math.max(margin, Math.min(clientY, window.innerHeight - rect.height - margin));
+  menu.classList.toggle('submenu-left', left + rect.width + 190 > window.innerWidth);
+  menu.style.left = `${left}px`;
+  menu.style.top = `${top}px`;
+}
+
+function hideMeasureContextMenu() {
+  if (!dom.measureContextMenu) return;
+  dom.measureContextMenu.hidden = true;
+  appState.measureContextTarget = null;
+}
+
+function hideAllContextMenus() {
+  hideNoteContextMenu();
+  hideMeasureContextMenu();
+}
+
+function openMeasureContextMenu(e, sc) {
+  clearTimeout(_clickTimer);
+  _pendingClick = null;
+  appState._mouseDownOnNote = false;
+  appState._mouseDidDrag = false;
+  appState.measureContextTarget = sc.measureIndex;
+  appState.selectedNotes = [];
+  hideNoteContextMenu();
+  hideGhost();
+  renderMeasureContextMenu();
+  positionMeasureContextMenu(e.clientX, e.clientY);
+  updateStatusBar();
+}
+
+function openMeasureGapFromContext(measureIndex) {
+  hideAllContextMenus();
+  if (!requireFullToolsAccess()) return;
+  if (appState.chordMode)        toggleChordMode();
+  if (appState.lyricMode)        toggleLyricMode();
+  if (appState.repeatMode)       exitRepeatMode();
+  if (appState.articulationMode) exitArticulationMode();
+  if (appState.strumMode)        exitStrumMode();
+  if (appState.dynamicsMode)     exitDynamicsMode();
+  if (appState.songFormMode)     exitSongFormMode();
+
+  appState.measureGapMode = true;
+  appState._gapSelectedMeasure = measureIndex;
+  document.getElementById('btn-gap-mode')?.classList.add('active');
+  dom.canvas.classList.add('cursor-form');
+  renderScore();
+  showGapPanel(measureIndex);
+  updateStatusBar();
+}
+
+function handleMeasureContextAction(action, value) {
+  const measureIndex = appState.measureContextTarget;
+  if (!Number.isFinite(measureIndex)) return;
+
+  switch (action) {
+    case 'measure-gap':
+      openMeasureGapFromContext(measureIndex);
+      return;
+    case 'measure-repeat':
+      if (!requireFullToolsAccess()) return;
+      toggleRepeatMarker(measureIndex, value);
+      renderScore();
+      break;
+    case 'measure-form':
+      if (!requireFullToolsAccess()) return;
+      if (appState.songFormLabels[measureIndex] === value) {
+        delete appState.songFormLabels[measureIndex];
+      } else {
+        appState.songFormLabels[measureIndex] = value;
+      }
+      renderScore();
+      break;
+    case 'measure-insert':
+      if (!requireFullToolsAccess()) return;
+      insertBlankMeasure(measureIndex);
+      break;
+    case 'measure-play':
+      hideAllContextMenus();
+      playMeasure(measureIndex);
+      return;
+    case 'measure-clear':
+      if (!requireFullToolsAccess()) return;
+      clearMeasure(measureIndex);
+      break;
+    case 'measure-delete':
+      if (!requireFullToolsAccess()) return;
+      deleteMeasure(measureIndex);
+      break;
+    default:
+      return;
+  }
+
+  hideAllContextMenus();
+  updateStatusBar();
+}
+
 function openNoteContextMenu(e, hit) {
   clearTimeout(_clickTimer);
   _pendingClick = null;
@@ -3372,6 +3657,7 @@ function openNoteContextMenu(e, hit) {
   appState._mouseDidDrag = false;
   appState.contextMenuTarget = hit;
   setCursorToNoteRef(hit);
+  hideMeasureContextMenu();
 
   const clickedSelection = appState.selectedNotes.some((note) => isSameNoteRef(note, hit));
   if (!clickedSelection) appState.selectedNotes = [{ voice: hit.voice, index: hit.index }];
@@ -3647,12 +3933,19 @@ dom.canvas.addEventListener('contextmenu', (e) => {
   if (appState.isPlaying) return;
   const { x: mx, y: my } = getCanvasCoords(e);
   const hit = hitTestNote(mx, my);
-  if (!hit) {
-    hideNoteContextMenu();
+  e.preventDefault();
+  if (hit) {
+    openNoteContextMenu(e, hit);
     return;
   }
-  e.preventDefault();
-  openNoteContextMenu(e, hit);
+
+  const sc = getMeasureStaveForPoint(mx, my);
+  if (sc) {
+    openMeasureContextMenu(e, sc);
+    return;
+  }
+
+  hideAllContextMenus();
 });
 
 dom.noteContextMenu?.addEventListener('click', (e) => {
@@ -3664,25 +3957,39 @@ dom.noteContextMenu?.addEventListener('click', (e) => {
 
 dom.noteContextMenu?.addEventListener('contextmenu', (e) => e.preventDefault());
 
+dom.measureContextMenu?.addEventListener('click', (e) => {
+  e.stopPropagation();
+  const button = e.target.closest('[data-context-action]');
+  if (!button || button.disabled) return;
+  handleMeasureContextAction(button.dataset.contextAction, button.dataset.contextValue || '');
+});
+
+dom.measureContextMenu?.addEventListener('contextmenu', (e) => e.preventDefault());
+
 document.addEventListener('click', (e) => {
-  if (!dom.noteContextMenu || dom.noteContextMenu.hidden) return;
-  if (!dom.noteContextMenu.contains(e.target)) hideNoteContextMenu();
+  const noteMenuOpen = dom.noteContextMenu && !dom.noteContextMenu.hidden;
+  const measureMenuOpen = dom.measureContextMenu && !dom.measureContextMenu.hidden;
+  if (!noteMenuOpen && !measureMenuOpen) return;
+  if (dom.noteContextMenu?.contains(e.target) || dom.measureContextMenu?.contains(e.target)) return;
+  hideAllContextMenus();
 });
 
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && dom.noteContextMenu && !dom.noteContextMenu.hidden) {
+  const hasOpenContextMenu = (dom.noteContextMenu && !dom.noteContextMenu.hidden) ||
+    (dom.measureContextMenu && !dom.measureContextMenu.hidden);
+  if (e.key === 'Escape' && hasOpenContextMenu) {
     e.preventDefault();
     e.stopImmediatePropagation();
-    hideNoteContextMenu();
+    hideAllContextMenus();
   }
 });
 
-window.addEventListener('resize', hideNoteContextMenu);
-window.addEventListener('scroll', hideNoteContextMenu, true);
+window.addEventListener('resize', hideAllContextMenus);
+window.addEventListener('scroll', hideAllContextMenus, true);
 
 /* ── Mousedown ── */
 dom.canvas.addEventListener('mousedown', (e) => {
-  if (e.button === 0) hideNoteContextMenu();
+  if (e.button === 0) hideAllContextMenus();
   if (e.button !== 0 || appState.isPlaying) return;
   const { x: mx, y: my } = getCanvasCoords(e);
   appState._mouseDidDrag = false;
