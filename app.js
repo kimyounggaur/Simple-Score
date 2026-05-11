@@ -1463,6 +1463,44 @@ function drawBeams(beams, context) {
   });
 }
 
+function getRhythmWeight(note) {
+  if (!note) return 0;
+  const durationWeights = { w: 0.65, h: 0.85, q: 1, '8': 1.35, '16': 1.75 };
+  let weight = durationWeights[note.duration] || 1;
+  if (note.isDotted) weight *= 1.1;
+  if (note.isRest) weight *= 0.9;
+  return weight;
+}
+
+function getMeasureRhythmDensity(measureNotes) {
+  return (measureNotes || []).reduce((sum, note) => sum + getRhythmWeight(note), 0);
+}
+
+function getCombinedMeasureDensity(measureNotes, voice2MeasureNotes) {
+  const density1 = getMeasureRhythmDensity(measureNotes);
+  const density2 = getMeasureRhythmDensity(voice2MeasureNotes);
+  const density = Math.max(density1, density2);
+  return density1 > 0 && density2 > 0 ? density * 1.08 : density;
+}
+
+function getAutoMeasureWidth(measureIndex, measureNotes, voice2MeasureNotes) {
+  const baseWidth = Number(appState.layout.measureWidth) || 200;
+  const density = getCombinedMeasureDensity(measureNotes, voice2MeasureNotes);
+  if (density <= 0) return baseWidth;
+
+  const densityExtra = Math.max(0, density - 4) * 22;
+  const rawWidth = density <= 4 ? baseWidth : baseWidth + densityExtra;
+  const minWidth = baseWidth * 0.75;
+  const maxWidth = baseWidth * 1.9;
+  return Math.round(Math.min(maxWidth, Math.max(minWidth, rawWidth)));
+}
+
+function buildMeasureWidthMap(measures, v2measures) {
+  return measures.map((measureNotes, measureIndex) =>
+    getAutoMeasureWidth(measureIndex, measureNotes, v2measures[measureIndex] || [])
+  );
+}
+
 function renderScore() {
   /* Remove only SVG and ghost overlay — preserve chord/lyric input elements */
   dom.canvas.querySelectorAll('svg, #ghost-overlay').forEach(el => el.remove());
@@ -1473,6 +1511,7 @@ function renderScore() {
   const measures   = splitIntoMeasures(appState.notes);
   const v2measures = splitIntoMeasures(appState.voice2Notes);
   const { measuresPerLine, staffSpacing, measureWidth, staffLineSpacing } = appState.layout;
+  while (measures.length < v2measures.length) measures.push([]);
   /* Always show at least 4 rows (4 staves) of empty measures */
   const minMeasures = measuresPerLine * 4;
   while (measures.length < minMeasures) measures.push([]);
@@ -1481,18 +1520,20 @@ function renderScore() {
   const numRows     = Math.ceil(measures.length / measuresPerLine);
   const FIRST_X     = STAVE_X;
   const clefWidth   = 80;  // extra width for clef/key/time in first measure
-  /* find max cumulative gap across all rows (last measure's gap is trailing, skip it) */
-  let _maxGapSum = 0;
-  const rowGapSums = [];
-  for (let _r = 0; _r < numRows; _r++) {
-    let _gapSum = 0;
-    for (let _c = 0; _c < measuresPerLine - 1; _c++) {
-      _gapSum += (appState.measureGaps[_r * measuresPerLine + _c] || 0);
+  const measureWidths = buildMeasureWidthMap(measures, v2measures);
+  const rowWidths = [];
+  let maxRowWidth = 0;
+  for (let row = 0; row < numRows; row++) {
+    let rowTotal = row === 0 ? clefWidth : 0;
+    for (let col = 0; col < measuresPerLine; col++) {
+      const mIdx = row * measuresPerLine + col;
+      rowTotal += measureWidths[mIdx] || measureWidth;
+      if (col < measuresPerLine - 1) rowTotal += appState.measureGaps[mIdx] || 0;
     }
-    rowGapSums[_r] = _gapSum;
-    if (_gapSum > _maxGapSum) _maxGapSum = _gapSum;
+    rowWidths[row] = rowTotal;
+    maxRowWidth = Math.max(maxRowWidth, rowTotal);
   }
-  const rowWidth    = measureWidth * measuresPerLine + clefWidth + _maxGapSum;
+  const rowWidth = maxRowWidth;
 
   const svgW = rowWidth + FIRST_X * 2 + 20;
   const svgH = STAVE_Y_START + numRows * staffSpacing + 60;
@@ -1514,21 +1555,15 @@ function renderScore() {
     /* first measure in first row gets extra width for clef/sig */
     const isFirstMeasure = (mIdx === 0);
     const isLastMeasureInRow = (col === measuresPerLine - 1);
-    const rowGapDeficit = Math.max(0, _maxGapSum - (rowGapSums[row] || 0));
-    const rowEndExtension = isLastMeasureInRow
-      ? (row === 0 ? rowGapDeficit : clefWidth + rowGapDeficit)
-      : 0;
+    const rowEndExtension = isLastMeasureInRow ? Math.max(0, rowWidth - (rowWidths[row] || rowWidth)) : 0;
     const extraW  = isFirstMeasure ? clefWidth : 0;
-    const staveW  = measureWidth + extraW + rowEndExtension;
-    let   staveX  = FIRST_X;
-    for (let c = 0; c < col; c++) {
-      staveX += measureWidth + (c === 0 && mIdx >= measuresPerLine ? 0 : 0);
-    }
-    /* accumulate X: first measure of row 0 is wider; add custom gap after each measure */
-    staveX = FIRST_X;
+    const staveW  = (measureWidths[mIdx] || measureWidth) + extraW + rowEndExtension;
+    let staveX = FIRST_X;
     for (let c = 0; c < col; c++) {
       const prevIdx = row * measuresPerLine + c;
-      staveX += measureWidth + (prevIdx === 0 ? clefWidth : 0) + (appState.measureGaps[prevIdx] || 0);
+      staveX += (measureWidths[prevIdx] || measureWidth)
+        + (prevIdx === 0 ? clefWidth : 0)
+        + (appState.measureGaps[prevIdx] || 0);
     }
 
     const stave = new Stave(staveX, y, staveW, { spacing_between_lines_px: staffLineSpacing });
