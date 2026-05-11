@@ -1292,6 +1292,11 @@ function buildVexNotesForVoice(mNotes, voiceNum, cursorIdx, notesArr) {
       stem_direction: getNoteStemDirection(n, voiceNum),
     });
     if (n.isDotted) Dot.buildAndAttach([sn]);
+    if (n.isHiddenRest) {
+      sn.setStyle({ fillStyle: 'transparent', strokeStyle: 'transparent' });
+      sn.setStemStyle({ fillStyle: 'transparent', strokeStyle: 'transparent' });
+      return sn;
+    }
     if (!n.isRest) {
       n.keys.forEach((k, ki) => {
         const nm = k.split('/')[0];
@@ -1407,6 +1412,28 @@ const BEAM_GROUP_SIZE = 4;
 
 function buildBeamsForMeasure(mNotes, vexNotes) {
   if (!Beam || !mNotes.length || !vexNotes.length) return [];
+
+  if (mNotes.some(note => note.beamGroupId)) {
+    const explicitGroups = new Map();
+    mNotes.forEach((note, index) => {
+      if (!note.beamGroupId || !isBeamableNote(note) || !vexNotes[index]) return;
+      if (!explicitGroups.has(note.beamGroupId)) explicitGroups.set(note.beamGroupId, []);
+      explicitGroups.get(note.beamGroupId).push({ note, vexNote: vexNotes[index] });
+    });
+
+    return Array.from(explicitGroups.values())
+      .filter(group => group.length >= 2)
+      .map(group => {
+        try {
+          const direction = group[0].vexNote?.getStemDirection?.() || null;
+          return new Beam(group.map(entry => entry.vexNote), direction ? { stem_direction: direction } : undefined);
+        } catch (error) {
+          console.warn('Imported beam render skipped:', error);
+          return null;
+        }
+      })
+      .filter(Boolean);
+  }
 
   const beams = [];
   let group = [];
@@ -4944,6 +4971,406 @@ function musicXmlPitchToVex(noteEl) {
   return `${step}${acc}/${octave}`;
 }
 
+function readMusicXmlDurationValue(element) {
+  return Math.max(0, Number(childText(element, 'duration') || 0));
+}
+
+function getMusicXmlMeasureTicks(divisions, timeSignature) {
+  const [beats, beatType] = String(timeSignature || '4/4').split('/').map(Number);
+  return Math.max(1, Math.round((beats || 4) * (4 / (beatType || 4)) * divisions));
+}
+
+function buildImportedRestNotesFromTicks(ticks, divisions, hidden = true) {
+  const notes = [];
+  let remainingBeats = Math.max(0, Number(ticks || 0) / Math.max(1, divisions || MUSICXML_DIVISIONS));
+  const units = [
+    { duration: 'w', beats: 4 },
+    { duration: 'h', beats: 2 },
+    { duration: 'q', beats: 1 },
+    { duration: '8', beats: 0.5 },
+    { duration: '16', beats: 0.25 },
+  ];
+
+  let guard = 0;
+  while (remainingBeats > 0.001 && guard++ < 64) {
+    const unit = units.find(item => item.beats <= remainingBeats + 0.001) || units[units.length - 1];
+    notes.push({
+      keys: ['b/4'],
+      duration: unit.duration,
+      isRest: true,
+      isDotted: false,
+      isHiddenRest: hidden,
+    });
+    remainingBeats -= unit.beats;
+  }
+
+  return notes;
+}
+
+function addImportedRepeatMarker(imported, measureIndex, marker) {
+  if (!marker || measureIndex < 0) return;
+  if (!imported.repeatMarkers[measureIndex]) imported.repeatMarkers[measureIndex] = {};
+  imported.repeatMarkers[measureIndex][marker] = true;
+}
+
+function readMusicXmlHarmonyText(harmonyEl) {
+  const kindEl = firstChildByName(harmonyEl, 'kind');
+  const kindText = kindEl?.getAttribute('text') || kindEl?.textContent?.trim() || '';
+  const root = firstChildByName(harmonyEl, 'root');
+  const rootStep = childText(root, 'root-step') || '';
+  const rootAlter = Number(childText(root, 'root-alter') || 0);
+  const suffix = rootAlter > 0 ? '#' : (rootAlter < 0 ? 'b' : '');
+  const rootName = rootStep ? `${rootStep}${suffix}` : '';
+  if (!rootName) return kindText || '';
+  if (!kindText || /^(major|none)$/i.test(kindText)) return rootName;
+  if (kindText.toUpperCase().startsWith(rootName.toUpperCase())) return kindText;
+  return `${rootName}${kindText}`;
+}
+
+function mapMusicXmlWordsToScoreState(words, measureIndex, imported) {
+  const text = String(words || '').trim();
+  if (!text) return;
+  const normalized = text.toLowerCase().replace(/\s+/g, ' ');
+
+  if (/d\.?\s*s\.?\s*al\s*coda|dal\s*segno\s*al\s*coda/.test(normalized)) addImportedRepeatMarker(imported, measureIndex, 'ds-al-coda');
+  else if (/d\.?\s*c\.?|da\s*capo/.test(normalized)) addImportedRepeatMarker(imported, measureIndex, 'da-capo');
+  else if (/d\.?\s*s\.?|dal\s*segno/.test(normalized)) addImportedRepeatMarker(imported, measureIndex, 'dal-segno');
+  else if (/fine|피네/.test(normalized)) addImportedRepeatMarker(imported, measureIndex, 'fine');
+  else if (/segno|세뇨/.test(normalized)) addImportedRepeatMarker(imported, measureIndex, 'segno');
+  else if (/coda|코다/.test(normalized)) addImportedRepeatMarker(imported, measureIndex, 'coda');
+
+  const formMap = [
+    ['pre-chorus', /pre[-\s]?chorus|프리\s*코러스/],
+    ['chorus', /chorus|코러스/],
+    ['interlude', /interlude|간주/],
+    ['bridge', /bridge|브리지/],
+    ['climax', /climax|클라이맥스/],
+    ['outro', /outro|아웃트로/],
+    ['intro', /intro|인트로/],
+    ['verse', /verse|벌스/],
+    ['fade-in', /fade\s*in|페이드\s*인/],
+    ['fade-out', /fade\s*out|페이드\s*아웃/],
+  ];
+  const match = formMap.find(([, pattern]) => pattern.test(normalized));
+  if (match && imported.songFormLabels[measureIndex] === undefined) {
+    imported.songFormLabels[measureIndex] = match[0];
+  }
+}
+
+function readMusicXmlDirection(directionEl, measureIndex, imported) {
+  const result = {};
+  const dynamics = Array.from(directionEl.getElementsByTagName('dynamics'))[0];
+  if (dynamics?.children?.[0]) result.dynamic = dynamics.children[0].localName;
+
+  Array.from(directionEl.getElementsByTagName('words')).forEach((wordEl) => {
+    const words = wordEl.textContent?.trim() || '';
+    if (!words) return;
+    if (words.startsWith('SimpleScoreStrum:')) {
+      result.strum = words.split(':')[1] || '';
+    } else {
+      mapMusicXmlWordsToScoreState(words, measureIndex, imported);
+    }
+  });
+
+  return result;
+}
+
+function readMusicXmlArticulation(noteEl) {
+  const articulations = Array.from(noteEl.getElementsByTagName('articulations'))[0];
+  if (!articulations?.children?.[0]) return '';
+  const tag = articulations.children[0].localName;
+  return tag === 'strong-accent' ? 'marcato' : tag;
+}
+
+function readMusicXmlLyrics(noteEl, note) {
+  directChildren(noteEl, 'lyric').forEach((lyric) => {
+    const number = Math.max(1, Number(lyric.getAttribute('number') || 1));
+    const text = childText(lyric, 'text');
+    if (!text) return;
+    if (!note.lyrics) note.lyrics = [];
+    note.lyrics[number - 1] = text;
+  });
+  if (note.lyrics?.[0]) note.lyric = note.lyrics[0];
+}
+
+function getMusicXmlAppVoice(partIndex, voiceId, staff) {
+  if (partIndex > 0) return 1;
+  const voiceText = String(voiceId || '1').trim();
+  return voiceText === '1' && Number(staff || 1) <= 1 ? 0 : 1;
+}
+
+function applyMusicXmlBeam(noteEl, event, state, measureIndex) {
+  const beamEl = directChildren(noteEl, 'beam').find((beam) => (beam.getAttribute('number') || '1') === '1');
+  if (!beamEl || !isBeamableNote(event)) return;
+
+  const value = beamEl.textContent?.trim().toLowerCase() || '';
+  if (value.includes('hook')) return;
+
+  const key = `${event.partIndex}:${measureIndex}:${event.voiceId}:${event.staff}:1`;
+  if (value === 'begin') {
+    const id = `mxml-beam-${state.beamNextId++}`;
+    state.beamOpen.set(key, id);
+    event.beamGroupId = id;
+    return;
+  }
+
+  const existing = state.beamOpen.get(key) || `mxml-beam-${state.beamNextId++}`;
+  if (!state.beamOpen.has(key) && value !== 'end') state.beamOpen.set(key, existing);
+  event.beamGroupId = existing;
+  if (value === 'end') state.beamOpen.delete(key);
+}
+
+function applyMusicXmlTuplet(noteEl, event, state, measureIndex) {
+  const timeMod = firstChildByName(noteEl, 'time-modification');
+  const actualNotes = Number(childText(timeMod, 'actual-notes') || 0);
+  const normalNotes = Number(childText(timeMod, 'normal-notes') || 0);
+  if (!actualNotes || !normalNotes) return;
+
+  const tupletEl = Array.from(noteEl.getElementsByTagName('tuplet'))[0];
+  const type = tupletEl?.getAttribute('type') || '';
+  const number = tupletEl?.getAttribute('number') || '1';
+  const key = `${event.partIndex}:${measureIndex}:${event.voiceId}:${event.staff}:${number}`;
+  let id = state.tupletOpen.get(key);
+
+  if (type === 'start' || !id) {
+    id = type ? `mxml-tuplet-${state.tupletNextId++}` : `mxml-tuplet-${measureIndex}-${event.appVoice}-${actualNotes}-${normalNotes}`;
+    if (type === 'start') state.tupletOpen.set(key, id);
+  }
+
+  event.tupletId = id;
+  event.tupletNumNotes = actualNotes;
+  event.tupletNotesOccupied = normalNotes;
+  if (type === 'stop') state.tupletOpen.delete(key);
+}
+
+function readMusicXmlSlurs(noteEl) {
+  return Array.from(noteEl.getElementsByTagName('slur'))
+    .map((slur) => ({
+      type: slur.getAttribute('type') || '',
+      number: slur.getAttribute('number') || '1',
+    }))
+    .filter((slur) => slur.type === 'start' || slur.type === 'stop');
+}
+
+function hasMusicXmlTieStart(noteEl) {
+  return [...Array.from(noteEl.getElementsByTagName('tie')), ...Array.from(noteEl.getElementsByTagName('tied'))]
+    .some((tie) => tie.getAttribute('type') === 'start');
+}
+
+function parseMusicXmlBarline(barlineEl, measureIndex, imported) {
+  const repeat = firstChildByName(barlineEl, 'repeat');
+  if (repeat) {
+    const direction = repeat.getAttribute('direction');
+    if (direction === 'forward') addImportedRepeatMarker(imported, measureIndex, 'repeat-start');
+    if (direction === 'backward') addImportedRepeatMarker(imported, measureIndex, 'repeat-end');
+  }
+
+  directChildren(barlineEl, 'ending').forEach((ending) => {
+    const number = Number(String(ending.getAttribute('number') || '').split(',')[0]);
+    const type = ending.getAttribute('type') || '';
+    if ((number === 1 || number === 2) && type !== 'stop') {
+      addImportedRepeatMarker(imported, measureIndex, `volta-${number}`);
+    }
+  });
+}
+
+function parseMusicXmlMeasureTimeline(measureEl, measureIndex, partIndex, divisions, imported, state) {
+  let currentTick = 0;
+  let lastNoteEvent = null;
+  const events = [];
+  const harmonies = [];
+  const directions = [];
+
+  Array.from(measureEl.children).forEach((node) => {
+    if (node.localName === 'backup') {
+      currentTick = Math.max(0, currentTick - readMusicXmlDurationValue(node));
+      return;
+    }
+
+    if (node.localName === 'forward') {
+      currentTick += readMusicXmlDurationValue(node);
+      return;
+    }
+
+    if (node.localName === 'harmony') {
+      const chord = readMusicXmlHarmonyText(node);
+      if (chord) harmonies.push({ tick: currentTick, chord });
+      return;
+    }
+
+    if (node.localName === 'direction') {
+      const direction = readMusicXmlDirection(node, measureIndex, imported);
+      if (direction.dynamic || direction.strum) directions.push({ tick: currentTick, ...direction });
+      return;
+    }
+
+    if (node.localName === 'barline') {
+      parseMusicXmlBarline(node, measureIndex, imported);
+      return;
+    }
+
+    if (node.localName !== 'note') return;
+
+    const isChord = !!firstChildByName(node, 'chord');
+    const durationTick = readMusicXmlDurationValue(node);
+    const isRest = !!firstChildByName(node, 'rest');
+    const isDotted = !!firstChildByName(node, 'dot');
+    const voiceId = childText(node, 'voice') || '1';
+    const staff = Number(childText(node, 'staff') || 1);
+    const appVoice = getMusicXmlAppVoice(partIndex, voiceId, staff);
+    const event = {
+      keys: [isRest ? 'b/4' : musicXmlPitchToVex(node)],
+      duration: xmlNoteDurationToApp(durationTick, divisions, isDotted, childText(node, 'type')),
+      isRest,
+      isDotted,
+      partIndex,
+      measureIndex,
+      voiceId,
+      staff,
+      appVoice,
+      startTick: isChord && lastNoteEvent ? lastNoteEvent.startTick : currentTick,
+      durationTick,
+    };
+
+    if (hasMusicXmlTieStart(node)) event.tie = true;
+    const articulation = readMusicXmlArticulation(node);
+    if (articulation) event.articulation = articulation;
+    readMusicXmlLyrics(node, event);
+    event.slurs = readMusicXmlSlurs(node);
+    applyMusicXmlBeam(node, event, state, measureIndex);
+    applyMusicXmlTuplet(node, event, state, measureIndex);
+
+    if (isChord && lastNoteEvent && !event.isRest && !lastNoteEvent.isRest && lastNoteEvent.appVoice === event.appVoice) {
+      lastNoteEvent.keys.push(...event.keys);
+      if (event.tie) lastNoteEvent.tie = true;
+      if (event.beamGroupId && !lastNoteEvent.beamGroupId) lastNoteEvent.beamGroupId = event.beamGroupId;
+    } else {
+      events.push(event);
+      lastNoteEvent = event;
+    }
+
+    if (!isChord) currentTick += durationTick;
+  });
+
+  harmonies.forEach(({ tick, chord }) => {
+    const target = events.find((event) => event.appVoice === 0 && !event.isRest && event.startTick >= tick)
+      || events.find((event) => !event.isRest && event.startTick >= tick);
+    if (target && !target.chord) target.chord = chord;
+  });
+
+  directions.forEach((direction) => {
+    const target = events.find((event) => !event.isRest && event.startTick >= direction.tick);
+    if (!target) return;
+    if (direction.dynamic) target.dynamic = direction.dynamic;
+    if (direction.strum) target.strum = direction.strum;
+  });
+
+  return events;
+}
+
+function parseMusicXmlPart(part, partIndex, imported) {
+  const state = {
+    divisions: MUSICXML_DIVISIONS,
+    timeSignature: imported.timeSignature,
+    beamOpen: new Map(),
+    beamNextId: 1,
+    tupletOpen: new Map(),
+    tupletNextId: 1,
+  };
+
+  return directChildren(part, 'measure').map((measure, measureIndex) => {
+    const attributes = firstChildByName(measure, 'attributes');
+    if (attributes) {
+      state.divisions = Number(childText(attributes, 'divisions')) || state.divisions;
+      const key = firstChildByName(attributes, 'key');
+      const fifths = key ? Number(childText(key, 'fifths')) : NaN;
+      if (partIndex === 0 && !imported._hasKeySignature && Number.isFinite(fifths) && FIFTHS_TO_KEY[fifths] !== undefined) {
+        imported.keySignature = FIFTHS_TO_KEY[fifths];
+        imported._hasKeySignature = true;
+      }
+
+      const time = firstChildByName(attributes, 'time');
+      const beats = childText(time, 'beats');
+      const beatType = childText(time, 'beat-type');
+      if (partIndex === 0 && beats && beatType && !imported._hasTimeSignature) {
+        imported.timeSignature = `${beats}/${beatType}`;
+        imported._hasTimeSignature = true;
+      }
+      if (beats && beatType) state.timeSignature = `${beats}/${beatType}`;
+    }
+
+    return {
+      divisions: state.divisions,
+      timeSignature: state.timeSignature,
+      measureTicks: getMusicXmlMeasureTicks(state.divisions, state.timeSignature),
+      events: parseMusicXmlMeasureTimeline(measure, measureIndex, partIndex, state.divisions, imported, state),
+    };
+  });
+}
+
+function cloneMusicXmlEventAsNote(event) {
+  const note = {
+    keys: [...event.keys],
+    duration: event.duration,
+    isRest: event.isRest,
+    isDotted: event.isDotted,
+    startTick: event.startTick,
+    durationTick: event.durationTick,
+    musicXmlVoice: event.voiceId,
+    musicXmlStaff: event.staff,
+  };
+
+  ['chord', 'dynamic', 'strum', 'articulation', 'tie', 'beamGroupId',
+    'tupletId', 'tupletNumNotes', 'tupletNotesOccupied', 'lyric'].forEach((key) => {
+    if (event[key] !== undefined) note[key] = event[key];
+  });
+  if (event.lyrics) note.lyrics = [...event.lyrics];
+  return note;
+}
+
+function registerImportedSlurs(imported, event, appVoice, noteIndex) {
+  if (!event.slurs?.length || event.isRest) return;
+  event.slurs.forEach((slur) => {
+    const key = `${appVoice}:${slur.number}`;
+    if (slur.type === 'start') {
+      imported._slurOpen.set(key, noteIndex);
+    } else if (slur.type === 'stop') {
+      const start = imported._slurOpen.get(key);
+      if (Number.isInteger(start) && noteIndex > start) {
+        imported.slurGroups.push({
+          id: `mxml-slur-${appVoice}-${start}-${noteIndex}-${slur.number}`,
+          voice: appVoice,
+          start,
+          end: noteIndex,
+        });
+      }
+      imported._slurOpen.delete(key);
+    }
+  });
+}
+
+function appendMusicXmlVoiceMeasure(targetNotes, events, divisions, measureTicks, appVoice, imported) {
+  const sorted = [...events].sort((left, right) => left.startTick - right.startTick);
+  let cursorTick = 0;
+
+  sorted.forEach((event) => {
+    if (event.startTick > cursorTick + 0.001) {
+      targetNotes.push(...buildImportedRestNotesFromTicks(event.startTick - cursorTick, divisions, true));
+      cursorTick = event.startTick;
+    }
+
+    const note = cloneMusicXmlEventAsNote(event);
+    const noteIndex = targetNotes.length;
+    targetNotes.push(note);
+    registerImportedSlurs(imported, event, appVoice, noteIndex);
+    cursorTick = Math.max(cursorTick, event.startTick + event.durationTick);
+  });
+
+  if (cursorTick < measureTicks - 0.001) {
+    targetNotes.push(...buildImportedRestNotesFromTicks(measureTicks - cursorTick, divisions, true));
+  }
+}
+
 function parseMusicXmlDocument(xmlText) {
   const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
   if (doc.querySelector('parsererror')) throw new Error('MusicXML 파싱에 실패했습니다.');
@@ -4956,86 +5383,48 @@ function parseMusicXmlDocument(xmlText) {
     voice2Notes: [],
     keySignature: appState.keySignature,
     timeSignature: appState.timeSignature,
+    slurGroups: [],
+    repeatMarkers: {},
+    songFormLabels: {},
+    _slurOpen: new Map(),
   };
 
-  parts.slice(0, 2).forEach((part, partIndex) => {
-    const notes = [];
-    directChildren(part, 'measure').forEach((measure) => {
-      let divisions = MUSICXML_DIVISIONS;
-      const attributes = firstChildByName(measure, 'attributes');
-      if (attributes) {
-        divisions = Number(childText(attributes, 'divisions')) || MUSICXML_DIVISIONS;
-        const key = firstChildByName(attributes, 'key');
-        const fifths = key ? Number(childText(key, 'fifths')) : NaN;
-        if (partIndex === 0 && Number.isFinite(fifths) && FIFTHS_TO_KEY[fifths] !== undefined) {
-          imported.keySignature = FIFTHS_TO_KEY[fifths];
-        }
-        const time = firstChildByName(attributes, 'time');
-        const beats = childText(time, 'beats');
-        const beatType = childText(time, 'beat-type');
-        if (partIndex === 0 && beats && beatType) imported.timeSignature = `${beats}/${beatType}`;
-      }
+  const parsedParts = parts.slice(0, 2).map((part, partIndex) => parseMusicXmlPart(part, partIndex, imported));
+  const maxMeasures = Math.max(...parsedParts.map((partMeasures) => partMeasures.length));
+  const hasVoice2 = parsedParts.some((partMeasures) =>
+    partMeasures.some((measure) => measure.events.some((event) => event.appVoice === 1))
+  );
 
-      let pendingChord = '';
-      let pendingDynamic = '';
-      let pendingStrum = '';
+  for (let measureIndex = 0; measureIndex < maxMeasures; measureIndex++) {
+    const measureInfos = parsedParts.map((partMeasures) => partMeasures[measureIndex]).filter(Boolean);
+    const reference = measureInfos[0] || {
+      divisions: MUSICXML_DIVISIONS,
+      measureTicks: getMusicXmlMeasureTicks(MUSICXML_DIVISIONS, imported.timeSignature),
+    };
+    const allEvents = measureInfos.flatMap((measure) => measure.events);
+    appendMusicXmlVoiceMeasure(
+      imported.notes,
+      allEvents.filter((event) => event.appVoice === 0),
+      reference.divisions,
+      reference.measureTicks,
+      0,
+      imported
+    );
+    if (hasVoice2) {
+      appendMusicXmlVoiceMeasure(
+        imported.voice2Notes,
+        allEvents.filter((event) => event.appVoice === 1),
+        reference.divisions,
+        reference.measureTicks,
+        1,
+        imported
+      );
+    }
+  }
 
-      Array.from(measure.children).forEach((node) => {
-        if (node.localName === 'harmony') {
-          pendingChord = firstChildByName(node, 'kind')?.getAttribute('text') || childText(firstChildByName(node, 'root'), 'root-step');
-          return;
-        }
-
-        if (node.localName === 'direction') {
-          const dynamics = node.getElementsByTagName('dynamics')[0];
-          if (dynamics?.children?.[0]) pendingDynamic = dynamics.children[0].localName;
-          const words = Array.from(node.getElementsByTagName('words')).map((word) => word.textContent?.trim() || '').find(Boolean);
-          if (words?.startsWith('SimpleScoreStrum:')) pendingStrum = words.split(':')[1] || '';
-          return;
-        }
-
-        if (node.localName !== 'note') return;
-        if (firstChildByName(node, 'chord')) return;
-
-        const isRest = !!firstChildByName(node, 'rest');
-        const isDotted = !!firstChildByName(node, 'dot');
-        const note = {
-          keys: [isRest ? 'b/4' : musicXmlPitchToVex(node)],
-          duration: xmlNoteDurationToApp(childText(node, 'duration'), divisions, isDotted, childText(node, 'type')),
-          isRest,
-          isDotted,
-        };
-
-        if (partIndex === 0 && pendingChord) note.chord = pendingChord;
-        if (pendingDynamic) note.dynamic = pendingDynamic;
-        if (pendingStrum) note.strum = pendingStrum;
-
-        const articulations = node.getElementsByTagName('articulations')[0];
-        if (articulations?.children?.[0]) {
-          const tag = articulations.children[0].localName;
-          note.articulation = tag === 'strong-accent' ? 'marcato' : tag;
-        }
-
-        const lyricEls = directChildren(node, 'lyric');
-        lyricEls.forEach((lyric) => {
-          const number = Math.max(1, Number(lyric.getAttribute('number') || 1));
-          const text = childText(lyric, 'text');
-          if (!text) return;
-          if (!note.lyrics) note.lyrics = [];
-          note.lyrics[number - 1] = text;
-        });
-        if (note.lyrics?.[0]) note.lyric = note.lyrics[0];
-
-        notes.push(note);
-        pendingChord = '';
-        pendingDynamic = '';
-        pendingStrum = '';
-      });
-    });
-
-    if (partIndex === 0) imported.notes = notes;
-    else imported.voice2Notes = notes;
-  });
+  delete imported._slurOpen;
+  delete imported._hasKeySignature;
+  delete imported._hasTimeSignature;
 
   return imported;
 }
@@ -5056,9 +5445,9 @@ function applyImportedMusicXml(imported) {
   appState.keySignature = imported.keySignature || 'C';
   appState.timeSignature = imported.timeSignature || '4/4';
   appState.selectedNotes = [];
-  appState.slurGroups = [];
-  appState.repeatMarkers = {};
-  appState.songFormLabels = {};
+  appState.slurGroups = imported.slurGroups || [];
+  appState.repeatMarkers = imported.repeatMarkers || {};
+  appState.songFormLabels = imported.songFormLabels || {};
   appState.measureGaps = {};
   appState.measureGapMode = false;
   appState._gapSelectedMeasure = null;
