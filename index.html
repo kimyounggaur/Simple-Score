@@ -132,6 +132,9 @@
       <ul class="mb-dropdown">
         <li><button class="mb-action" data-action="new-score">새 악보<kbd>Ctrl+N</kbd></button></li>
         <li class="mb-sep"></li>
+        <li><button class="mb-action" data-action="import-mxl">MXL 파일 불러오기</button></li>
+        <li><button class="mb-action" data-action="export-mxl">MXL 파일 내보내기</button></li>
+        <li class="mb-sep"></li>
         <li><button class="mb-action" data-action="export-png">PNG로 내보내기</button></li>
         <li><button class="mb-action" data-action="export-pdf">PDF로 내보내기</button></li>
       </ul>
@@ -782,6 +785,7 @@
 
   <div id="note-context-menu" class="note-context-menu" role="menu" hidden></div>
   <div id="measure-context-menu" class="note-context-menu measure-context-menu" role="menu" hidden></div>
+  <input id="mxl-file-input" type="file" accept=".mxl,.musicxml,.xml,application/vnd.recordare.musicxml" hidden />
 
   <script src="app.js"></script>
 </body>

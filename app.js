@@ -467,6 +467,7 @@ const dom = {
   lyricInput  : document.getElementById('lyric-input'),
   btnPNG      : document.getElementById('btn-export-png'),
   btnPDF      : document.getElementById('btn-export-pdf'),
+  mxlInput    : document.getElementById('mxl-file-input'),
   statusDur   : document.getElementById('status-duration'),
   statusPos   : document.getElementById('status-position'),
   statusPitch : document.getElementById('status-pitch'),
@@ -793,6 +794,8 @@ function applyAccessLocks() {
       ...dom.voiceButtons,
       ...dom.lyricVerseButtons,
       ...document.querySelectorAll('.form-btn'),
+      ...document.querySelectorAll('[data-action="import-mxl"]'),
+      ...document.querySelectorAll('[data-action="export-mxl"]'),
       ...document.querySelectorAll('[data-action="export-png"]'),
       ...document.querySelectorAll('[data-action="set-mpl"]'),
       ...document.querySelectorAll('[data-action="set-key"]'),
@@ -1469,21 +1472,24 @@ function renderScore() {
 
   const measures   = splitIntoMeasures(appState.notes);
   const v2measures = splitIntoMeasures(appState.voice2Notes);
-  /* Always show at least 4 rows (4 staves) of empty measures */
-  const minMeasures = appState.layout.measuresPerLine * 4;
-  while (measures.length < minMeasures) measures.push([]);
-
   const { measuresPerLine, staffSpacing, measureWidth, staffLineSpacing } = appState.layout;
+  /* Always show at least 4 rows (4 staves) of empty measures */
+  const minMeasures = measuresPerLine * 4;
+  while (measures.length < minMeasures) measures.push([]);
+  while (measures.length % measuresPerLine !== 0) measures.push([]);
+
   const numRows     = Math.ceil(measures.length / measuresPerLine);
   const FIRST_X     = STAVE_X;
   const clefWidth   = 80;  // extra width for clef/key/time in first measure
   /* find max cumulative gap across all rows (last measure's gap is trailing, skip it) */
   let _maxGapSum = 0;
+  const rowGapSums = [];
   for (let _r = 0; _r < numRows; _r++) {
     let _gapSum = 0;
     for (let _c = 0; _c < measuresPerLine - 1; _c++) {
       _gapSum += (appState.measureGaps[_r * measuresPerLine + _c] || 0);
     }
+    rowGapSums[_r] = _gapSum;
     if (_gapSum > _maxGapSum) _maxGapSum = _gapSum;
   }
   const rowWidth    = measureWidth * measuresPerLine + clefWidth + _maxGapSum;
@@ -1507,8 +1513,13 @@ function renderScore() {
 
     /* first measure in first row gets extra width for clef/sig */
     const isFirstMeasure = (mIdx === 0);
+    const isLastMeasureInRow = (col === measuresPerLine - 1);
+    const rowGapDeficit = Math.max(0, _maxGapSum - (rowGapSums[row] || 0));
+    const rowEndExtension = isLastMeasureInRow
+      ? (row === 0 ? rowGapDeficit : clefWidth + rowGapDeficit)
+      : 0;
     const extraW  = isFirstMeasure ? clefWidth : 0;
-    const staveW  = measureWidth + extraW;
+    const staveW  = measureWidth + extraW + rowEndExtension;
     let   staveX  = FIRST_X;
     for (let c = 0; c < col; c++) {
       staveX += measureWidth + (c === 0 && mIdx >= measuresPerLine ? 0 : 0);
@@ -4573,6 +4584,502 @@ async function exportToPDF() {
   document.body.style.cursor = '';
 }
 
+const MUSICXML_DIVISIONS = 4;
+const MUSICXML_KEY_FIFTHS = { C: 0, G: 1, D: 2, A: 3, E: 4, F: -1, Bb: -2, Eb: -3 };
+const FIFTHS_TO_KEY = { 0: 'C', 1: 'G', 2: 'D', 3: 'A', 4: 'E', '-1': 'F', '-2': 'Bb', '-3': 'Eb' };
+const MUSICXML_TYPE = { w: 'whole', h: 'half', q: 'quarter', '8': 'eighth', '16': '16th' };
+const TYPE_TO_DURATION = { whole: 'w', half: 'h', quarter: 'q', eighth: '8', '16th': '16' };
+
+function xmlEscape(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+function parseVexPitchForMusicXml(pitch) {
+  const match = String(pitch || 'c/4').match(/^([a-g])([#b]?)[/](\d+)$/i);
+  if (!match) return { step: 'C', alter: 0, octave: 4 };
+  return {
+    step: match[1].toUpperCase(),
+    alter: match[2] === '#' ? 1 : (match[2] === 'b' ? -1 : 0),
+    octave: Number(match[3]) || 4,
+  };
+}
+
+function noteToMusicXml(note, measureIndex, noteIndex, options = {}) {
+  const lines = [];
+  if (options.partIndex === 0 && note.chord) {
+    const chordText = xmlEscape(note.chord);
+    const root = String(note.chord).match(/[A-G](#|b)?/)?.[0] || 'C';
+    const rootStep = xmlEscape(root.charAt(0).toUpperCase());
+    const rootAlter = root.includes('#') ? 1 : (root.includes('b') ? -1 : 0);
+    lines.push('      <harmony>');
+    lines.push(`        <root><root-step>${rootStep}</root-step>${rootAlter ? `<root-alter>${rootAlter}</root-alter>` : ''}</root>`);
+    lines.push(`        <kind text="${chordText}">other</kind>`);
+    lines.push('      </harmony>');
+  }
+
+  if (note.dynamic) {
+    lines.push('      <direction placement="below">');
+    lines.push(`        <direction-type><dynamics><${xmlEscape(note.dynamic)}/></dynamics></direction-type>`);
+    lines.push('      </direction>');
+  }
+
+  if (note.strum) {
+    lines.push('      <direction placement="above">');
+    lines.push(`        <direction-type><words>SimpleScoreStrum:${xmlEscape(note.strum)}</words></direction-type>`);
+    lines.push('      </direction>');
+  }
+
+  lines.push('      <note>');
+  if (note.isRest) {
+    lines.push('        <rest/>');
+  } else {
+    const pitch = parseVexPitchForMusicXml(note.keys?.[0]);
+    lines.push('        <pitch>');
+    lines.push(`          <step>${pitch.step}</step>`);
+    if (pitch.alter) lines.push(`          <alter>${pitch.alter}</alter>`);
+    lines.push(`          <octave>${pitch.octave}</octave>`);
+    lines.push('        </pitch>');
+  }
+  lines.push(`        <duration>${Math.max(1, Math.round(noteBeatValue(note) * MUSICXML_DIVISIONS))}</duration>`);
+  lines.push(`        <voice>${options.partIndex + 1}</voice>`);
+  lines.push(`        <type>${MUSICXML_TYPE[note.duration] || 'quarter'}</type>`);
+  if (note.isDotted) lines.push('        <dot/>');
+
+  if (note.articulation) {
+    const articulationTag = note.articulation === 'marcato' ? 'strong-accent' : note.articulation;
+    lines.push('        <notations>');
+    lines.push(`          <articulations><${articulationTag}/></articulations>`);
+    lines.push('        </notations>');
+  }
+
+  const lyrics = note.lyrics || (note.lyric ? [note.lyric] : []);
+  lyrics.forEach((text, index) => {
+    if (!text) return;
+    lines.push(`        <lyric number="${index + 1}"><text>${xmlEscape(text)}</text></lyric>`);
+  });
+
+  lines.push('      </note>');
+  return lines.join('\n');
+}
+
+function partToMusicXml(partId, partName, notes, partIndex) {
+  let measures = splitIntoMeasures(notes);
+  if (!measures.length) {
+    measures = [createRestMeasureNotes().map((note, index) => ({ ...note, _gi: index }))];
+  }
+
+  const [beats, beatType] = appState.timeSignature.split('/');
+  const lines = [`  <part id="${partId}">`];
+
+  measures.forEach((measure, index) => {
+    lines.push(`    <measure number="${index + 1}">`);
+    if (index === 0) {
+      lines.push('      <attributes>');
+      lines.push(`        <divisions>${MUSICXML_DIVISIONS}</divisions>`);
+      lines.push(`        <key><fifths>${MUSICXML_KEY_FIFTHS[appState.keySignature] ?? 0}</fifths></key>`);
+      lines.push(`        <time><beats>${xmlEscape(beats || 4)}</beats><beat-type>${xmlEscape(beatType || 4)}</beat-type></time>`);
+      lines.push('        <clef><sign>G</sign><line>2</line></clef>');
+      lines.push('      </attributes>');
+    }
+    measure.forEach((note, noteIndex) => {
+      lines.push(noteToMusicXml(note, index, noteIndex, { partIndex }));
+    });
+    lines.push('    </measure>');
+  });
+
+  lines.push('  </part>');
+  return lines.join('\n');
+}
+
+function buildMusicXmlDocument() {
+  const hasVoice2 = appState.voice2Notes.length > 0;
+  const partList = [
+    '  <part-list>',
+    '    <score-part id="P1"><part-name>1성부</part-name></score-part>',
+    ...(hasVoice2 ? ['    <score-part id="P2"><part-name>2성부</part-name></score-part>'] : []),
+    '  </part-list>',
+  ].join('\n');
+
+  return [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">',
+    '<score-partwise version="4.0">',
+    '  <work><work-title>Simple Score</work-title></work>',
+    partList,
+    partToMusicXml('P1', '1성부', appState.notes, 0),
+    ...(hasVoice2 ? [partToMusicXml('P2', '2성부', appState.voice2Notes, 1)] : []),
+    '</score-partwise>',
+    '',
+  ].join('\n');
+}
+
+const CRC32_TABLE = (() => {
+  const table = new Uint32Array(256);
+  for (let i = 0; i < 256; i++) {
+    let crc = i;
+    for (let bit = 0; bit < 8; bit++) crc = (crc & 1) ? (0xedb88320 ^ (crc >>> 1)) : (crc >>> 1);
+    table[i] = crc >>> 0;
+  }
+  return table;
+})();
+
+function crc32(bytes) {
+  let crc = 0xffffffff;
+  for (let i = 0; i < bytes.length; i++) crc = CRC32_TABLE[(crc ^ bytes[i]) & 0xff] ^ (crc >>> 8);
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function u16(value) {
+  const bytes = new Uint8Array(2);
+  new DataView(bytes.buffer).setUint16(0, value, true);
+  return bytes;
+}
+
+function u32(value) {
+  const bytes = new Uint8Array(4);
+  new DataView(bytes.buffer).setUint32(0, value >>> 0, true);
+  return bytes;
+}
+
+function concatBytes(chunks) {
+  const total = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+  const out = new Uint8Array(total);
+  let offset = 0;
+  chunks.forEach((chunk) => { out.set(chunk, offset); offset += chunk.length; });
+  return out;
+}
+
+function createStoredZip(files) {
+  const encoder = new TextEncoder();
+  const localChunks = [];
+  const centralChunks = [];
+  let offset = 0;
+
+  files.forEach((file) => {
+    const name = encoder.encode(file.path);
+    const data = file.data instanceof Uint8Array ? file.data : encoder.encode(file.data);
+    const crc = crc32(data);
+    const localHeader = concatBytes([
+      u32(0x04034b50), u16(20), u16(0), u16(0), u16(0), u16(0), u32(crc),
+      u32(data.length), u32(data.length), u16(name.length), u16(0), name,
+    ]);
+    localChunks.push(localHeader, data);
+
+    const centralHeader = concatBytes([
+      u32(0x02014b50), u16(20), u16(20), u16(0), u16(0), u16(0), u16(0), u32(crc),
+      u32(data.length), u32(data.length), u16(name.length), u16(0), u16(0), u16(0), u16(0),
+      u32(0), u32(offset), name,
+    ]);
+    centralChunks.push(centralHeader);
+    offset += localHeader.length + data.length;
+  });
+
+  const localData = concatBytes(localChunks);
+  const centralData = concatBytes(centralChunks);
+  const endRecord = concatBytes([
+    u32(0x06054b50), u16(0), u16(0), u16(files.length), u16(files.length),
+    u32(centralData.length), u32(localData.length), u16(0),
+  ]);
+
+  return concatBytes([localData, centralData, endRecord]);
+}
+
+function buildMxlBlob() {
+  const encoder = new TextEncoder();
+  const musicXml = buildMusicXmlDocument();
+  const containerXml = [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">',
+    '  <rootfiles>',
+    '    <rootfile full-path="score.xml" media-type="application/vnd.recordare.musicxml+xml"/>',
+    '  </rootfiles>',
+    '</container>',
+    '',
+  ].join('\n');
+
+  const zipBytes = createStoredZip([
+    { path: 'mimetype', data: encoder.encode('application/vnd.recordare.musicxml') },
+    { path: 'META-INF/container.xml', data: encoder.encode(containerXml) },
+    { path: 'score.xml', data: encoder.encode(musicXml) },
+  ]);
+
+  return new Blob([zipBytes], { type: 'application/vnd.recordare.musicxml' });
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 500);
+}
+
+function exportToMXL() {
+  if (!requireFullToolsAccess()) return;
+  try {
+    downloadBlob(buildMxlBlob(), 'simple-score.mxl');
+  } catch (error) {
+    console.error('MXL export error:', error);
+    showAccessToast('MXL 파일을 내보내지 못했습니다.');
+  }
+}
+
+async function unzipMxl(arrayBuffer) {
+  const bytes = new Uint8Array(arrayBuffer);
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let eocdOffset = -1;
+  for (let i = bytes.length - 22; i >= Math.max(0, bytes.length - 66000); i--) {
+    if (view.getUint32(i, true) === 0x06054b50) { eocdOffset = i; break; }
+  }
+  if (eocdOffset < 0) throw new Error('MXL ZIP 구조를 찾을 수 없습니다.');
+
+  const entryCount = view.getUint16(eocdOffset + 10, true);
+  let centralOffset = view.getUint32(eocdOffset + 16, true);
+  const decoder = new TextDecoder();
+  const files = new Map();
+
+  for (let i = 0; i < entryCount; i++) {
+    if (view.getUint32(centralOffset, true) !== 0x02014b50) break;
+    const method = view.getUint16(centralOffset + 10, true);
+    const compressedSize = view.getUint32(centralOffset + 20, true);
+    const nameLen = view.getUint16(centralOffset + 28, true);
+    const extraLen = view.getUint16(centralOffset + 30, true);
+    const commentLen = view.getUint16(centralOffset + 32, true);
+    const localOffset = view.getUint32(centralOffset + 42, true);
+    const name = decoder.decode(bytes.slice(centralOffset + 46, centralOffset + 46 + nameLen));
+
+    if (view.getUint32(localOffset, true) !== 0x04034b50) throw new Error('MXL 로컬 헤더가 올바르지 않습니다.');
+    const localNameLen = view.getUint16(localOffset + 26, true);
+    const localExtraLen = view.getUint16(localOffset + 28, true);
+    const dataStart = localOffset + 30 + localNameLen + localExtraLen;
+    const compressed = bytes.slice(dataStart, dataStart + compressedSize);
+
+    if (method === 0) {
+      files.set(name, compressed);
+    } else if (method === 8 && 'DecompressionStream' in window) {
+      const stream = new Blob([compressed]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+      files.set(name, new Uint8Array(await new Response(stream).arrayBuffer()));
+    } else {
+      throw new Error('지원하지 않는 MXL 압축 방식입니다.');
+    }
+
+    centralOffset += 46 + nameLen + extraLen + commentLen;
+  }
+
+  return files;
+}
+
+function directChildren(element, name) {
+  return Array.from(element?.children || []).filter((child) => child.localName === name);
+}
+
+function firstChildByName(element, name) {
+  return directChildren(element, name)[0] || null;
+}
+
+function childText(element, name) {
+  return firstChildByName(element, name)?.textContent?.trim() || '';
+}
+
+function xmlNoteDurationToApp(durationValue, divisions, hasDot, typeText) {
+  const explicit = TYPE_TO_DURATION[typeText];
+  if (explicit) return explicit;
+  const beats = Number(durationValue || 0) / Math.max(1, divisions || MUSICXML_DIVISIONS);
+  const normalized = hasDot ? beats / 1.5 : beats;
+  const closest = Object.entries(DURATION_BEATS)
+    .sort((a, b) => Math.abs(a[1] - normalized) - Math.abs(b[1] - normalized))[0];
+  return closest?.[0] || 'q';
+}
+
+function musicXmlPitchToVex(noteEl) {
+  const pitch = firstChildByName(noteEl, 'pitch');
+  if (!pitch) return 'c/4';
+  const step = childText(pitch, 'step').toLowerCase() || 'c';
+  const alter = Number(childText(pitch, 'alter') || 0);
+  const octave = childText(pitch, 'octave') || '4';
+  const acc = alter > 0 ? '#' : (alter < 0 ? 'b' : '');
+  return `${step}${acc}/${octave}`;
+}
+
+function parseMusicXmlDocument(xmlText) {
+  const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
+  if (doc.querySelector('parsererror')) throw new Error('MusicXML 파싱에 실패했습니다.');
+
+  const parts = directChildren(doc.documentElement, 'part');
+  if (!parts.length) throw new Error('MusicXML part를 찾을 수 없습니다.');
+
+  const imported = {
+    notes: [],
+    voice2Notes: [],
+    keySignature: appState.keySignature,
+    timeSignature: appState.timeSignature,
+  };
+
+  parts.slice(0, 2).forEach((part, partIndex) => {
+    const notes = [];
+    directChildren(part, 'measure').forEach((measure) => {
+      let divisions = MUSICXML_DIVISIONS;
+      const attributes = firstChildByName(measure, 'attributes');
+      if (attributes) {
+        divisions = Number(childText(attributes, 'divisions')) || MUSICXML_DIVISIONS;
+        const key = firstChildByName(attributes, 'key');
+        const fifths = key ? Number(childText(key, 'fifths')) : NaN;
+        if (partIndex === 0 && Number.isFinite(fifths) && FIFTHS_TO_KEY[fifths] !== undefined) {
+          imported.keySignature = FIFTHS_TO_KEY[fifths];
+        }
+        const time = firstChildByName(attributes, 'time');
+        const beats = childText(time, 'beats');
+        const beatType = childText(time, 'beat-type');
+        if (partIndex === 0 && beats && beatType) imported.timeSignature = `${beats}/${beatType}`;
+      }
+
+      let pendingChord = '';
+      let pendingDynamic = '';
+      let pendingStrum = '';
+
+      Array.from(measure.children).forEach((node) => {
+        if (node.localName === 'harmony') {
+          pendingChord = firstChildByName(node, 'kind')?.getAttribute('text') || childText(firstChildByName(node, 'root'), 'root-step');
+          return;
+        }
+
+        if (node.localName === 'direction') {
+          const dynamics = node.getElementsByTagName('dynamics')[0];
+          if (dynamics?.children?.[0]) pendingDynamic = dynamics.children[0].localName;
+          const words = Array.from(node.getElementsByTagName('words')).map((word) => word.textContent?.trim() || '').find(Boolean);
+          if (words?.startsWith('SimpleScoreStrum:')) pendingStrum = words.split(':')[1] || '';
+          return;
+        }
+
+        if (node.localName !== 'note') return;
+        if (firstChildByName(node, 'chord')) return;
+
+        const isRest = !!firstChildByName(node, 'rest');
+        const isDotted = !!firstChildByName(node, 'dot');
+        const note = {
+          keys: [isRest ? 'b/4' : musicXmlPitchToVex(node)],
+          duration: xmlNoteDurationToApp(childText(node, 'duration'), divisions, isDotted, childText(node, 'type')),
+          isRest,
+          isDotted,
+        };
+
+        if (partIndex === 0 && pendingChord) note.chord = pendingChord;
+        if (pendingDynamic) note.dynamic = pendingDynamic;
+        if (pendingStrum) note.strum = pendingStrum;
+
+        const articulations = node.getElementsByTagName('articulations')[0];
+        if (articulations?.children?.[0]) {
+          const tag = articulations.children[0].localName;
+          note.articulation = tag === 'strong-accent' ? 'marcato' : tag;
+        }
+
+        const lyricEls = directChildren(node, 'lyric');
+        lyricEls.forEach((lyric) => {
+          const number = Math.max(1, Number(lyric.getAttribute('number') || 1));
+          const text = childText(lyric, 'text');
+          if (!text) return;
+          if (!note.lyrics) note.lyrics = [];
+          note.lyrics[number - 1] = text;
+        });
+        if (note.lyrics?.[0]) note.lyric = note.lyrics[0];
+
+        notes.push(note);
+        pendingChord = '';
+        pendingDynamic = '';
+        pendingStrum = '';
+      });
+    });
+
+    if (partIndex === 0) imported.notes = notes;
+    else imported.voice2Notes = notes;
+  });
+
+  return imported;
+}
+
+function applyImportedMusicXml(imported) {
+  stopPlayback();
+  hideChordInput();
+  hideLyricInput();
+  hideAllContextMenus();
+  document.getElementById('gap-panel').style.display = 'none';
+
+  appState.notes = imported.notes || [];
+  appState.voice2Notes = imported.voice2Notes || [];
+  appState.cursorIndex = 0;
+  appState.v2CursorIdx = 0;
+  appState.currentVoice = 0;
+  appState.voicePartModeActive = appState.voice2Notes.length > 0;
+  appState.keySignature = imported.keySignature || 'C';
+  appState.timeSignature = imported.timeSignature || '4/4';
+  appState.selectedNotes = [];
+  appState.slurGroups = [];
+  appState.repeatMarkers = {};
+  appState.songFormLabels = {};
+  appState.measureGaps = {};
+  appState.measureGapMode = false;
+  appState._gapSelectedMeasure = null;
+  appState.chordMode = false;
+  appState.lyricMode = false;
+  appState.repeatMode = false;
+  appState.songFormMode = false;
+  appState.articulationMode = false;
+  appState.strumMode = false;
+  appState.dynamicsMode = false;
+
+  dom.keySig.value = appState.keySignature;
+  dom.timeSig.value = appState.timeSignature;
+  dom.btnChord.classList.remove('active');
+  dom.btnLyric.classList.remove('active');
+  document.getElementById('btn-gap-mode')?.classList.remove('active');
+  document.querySelectorAll('.voice-btn').forEach((button) =>
+    button.classList.toggle('active', Number(button.dataset.voice) === 0)
+  );
+  resetTupletDraft();
+  renderScore();
+  updateStatusBar();
+}
+
+async function importMXLFile(file) {
+  if (!file) return;
+  if (!requireFullToolsAccess()) return;
+
+  try {
+    let xmlText = '';
+    if (/\.(xml|musicxml)$/i.test(file.name)) {
+      xmlText = await file.text();
+    } else {
+      const files = await unzipMxl(await file.arrayBuffer());
+      const decoder = new TextDecoder();
+      const containerBytes = files.get('META-INF/container.xml');
+      if (containerBytes) {
+        const containerDoc = new DOMParser().parseFromString(decoder.decode(containerBytes), 'application/xml');
+        const rootfile = Array.from(containerDoc.getElementsByTagName('*')).find((node) => node.localName === 'rootfile');
+        const fullPath = rootfile?.getAttribute('full-path');
+        if (fullPath && files.has(fullPath)) xmlText = decoder.decode(files.get(fullPath));
+      }
+      if (!xmlText) {
+        const fallback = Array.from(files.entries()).find(([name]) => /\.xml$/i.test(name) && !/container\.xml$/i.test(name));
+        if (fallback) xmlText = decoder.decode(fallback[1]);
+      }
+    }
+
+    if (!xmlText) throw new Error('MXL 안에서 MusicXML 악보 파일을 찾지 못했습니다.');
+    applyImportedMusicXml(parseMusicXmlDocument(xmlText));
+    showAccessToast('MXL 파일을 불러왔습니다.');
+  } catch (error) {
+    console.error('MXL import error:', error);
+    showAccessToast(error.message || 'MXL 파일을 불러오지 못했습니다.');
+  }
+}
 
 /* ═══════════════════════════════════════
    §15  UI BINDINGS
@@ -5248,6 +5755,11 @@ dom.btnClear.addEventListener('click', () => {
 });
 dom.btnPNG.addEventListener('click', exportToPNG);
 dom.btnPDF.addEventListener('click', exportToPDF);
+dom.mxlInput?.addEventListener('change', (event) => {
+  const file = event.target.files?.[0];
+  event.target.value = '';
+  importMXLFile(file);
+});
 
 /* ── Layout Sliders ── */
 dom.slMPL.addEventListener('input', () => {
@@ -5532,6 +6044,15 @@ function updateStatusBar() {
             dom.btnClear.click();
             appState.measureGaps = {};
           }
+          break;
+        case 'import-mxl':
+          closeAll();
+          if (!requireFullToolsAccess()) break;
+          dom.mxlInput?.click();
+          break;
+        case 'export-mxl':
+          closeAll();
+          exportToMXL();
           break;
         case 'export-png': closeAll(); exportToPNG(); break;
         case 'export-pdf': closeAll(); exportToPDF(); break;
